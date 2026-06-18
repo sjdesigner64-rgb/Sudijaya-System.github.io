@@ -1,0 +1,234 @@
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+
+const prisma = new PrismaClient()
+
+const DEFAULT_PASSWORD = 'Sudijaya2026!'
+
+async function upsertUser(data: { name: string; email: string; role: string }) {
+  const password = await bcrypt.hash(DEFAULT_PASSWORD, 10)
+  return prisma.user.upsert({
+    where: { email: data.email },
+    update: {},
+    create: { ...data, password, isActive: true },
+  })
+}
+
+async function main() {
+  // ── Users — satu per role ───────────────────────────────────
+  const superAdmin = await upsertUser({ name: 'Super Admin', email: 'admin@sudijayagroup.com', role: 'super_admin' })
+  const admin = await upsertUser({ name: 'Sinta Rahayu', email: 'finance@sudijayagroup.com', role: 'admin' })
+  const sales1 = await upsertUser({ name: 'Budi Santoso', email: 'budi.sales@sudijayagroup.com', role: 'sales' })
+  const sales2 = await upsertUser({ name: 'Rina Dewi', email: 'rina.sales@sudijayagroup.com', role: 'sales' })
+  const fabrikasi = await upsertUser({ name: 'Fajar Nugroho', email: 'fajar.fabrikasi@sudijayagroup.com', role: 'fabrikasi' })
+  const warehouse = await upsertUser({ name: 'Wahyu Prasetyo', email: 'wahyu.warehouse@sudijayagroup.com', role: 'warehouse' })
+  const media = await upsertUser({ name: 'Dewi Lestari', email: 'dewi.media@sudijayagroup.com', role: 'media' })
+
+  console.log('Users siap (password semua: %s):', DEFAULT_PASSWORD)
+  ;[superAdmin, admin, sales1, sales2, fabrikasi, warehouse, media].forEach((u) =>
+    console.log(`  - ${u.role.padEnd(11)} ${u.email}`)
+  )
+
+  // Bersihkan data transaksional lama (mis. hasil coba-coba form) supaya seed idempotent
+  await prisma.notification.deleteMany()
+  await prisma.afterSales.deleteMany()
+  await prisma.meeting.deleteMany()
+  await prisma.contentRequest.deleteMany()
+  await prisma.warehouseStock.deleteMany()
+  await prisma.ganttTask.deleteMany()
+  await prisma.productionGantt.deleteMany()
+  await prisma.bomRequest.deleteMany()
+  await prisma.drawingRequest.deleteMany()
+  await prisma.task.deleteMany()
+  await prisma.invoice.deleteMany()
+  await prisma.quotation.deleteMany()
+  await prisma.project.deleteMany()
+  await prisma.lead.deleteMany()
+  await prisma.customer.deleteMany()
+
+  // ── Customers ────────────────────────────────────────────────
+  const customerAgro = await prisma.customer.create({
+    data: { name: 'PT Agro Makmur', phone: '081234560001', email: 'procurement@agromakmur.co.id', source: 'whatsapp', status: 'active', npwp: '01.234.567.8-901.000', lastFollowUp: new Date('2026-06-10'), createdBy: sales1.id, isActive: true },
+  })
+  const customerSumberJaya = await prisma.customer.create({
+    data: { name: 'CV Sumber Jaya', phone: '081234560002', email: 'cv.sumberjaya@gmail.com', source: 'iklan', status: 'prospect', lastFollowUp: new Date('2026-06-09'), createdBy: sales2.id, isActive: true },
+  })
+  const customerMajuBersama = await prisma.customer.create({
+    data: { name: 'UD Maju Bersama', phone: '081234560003', email: 'majubersama@yahoo.com', source: 'offline', status: 'lead', lastFollowUp: new Date('2026-06-08'), createdBy: sales1.id, isActive: true },
+  })
+  const customerKaryaUtama = await prisma.customer.create({
+    data: { name: 'PT Karya Utama', phone: '081234560004', email: 'purchasing@karyautama.com', source: 'whatsapp', status: 'closed', npwp: '02.345.678.9-012.000', lastFollowUp: new Date('2026-06-07'), createdBy: sales2.id, isActive: true },
+  })
+
+  // ── Leads ────────────────────────────────────────────────────
+  await prisma.lead.createMany({
+    data: [
+      { customerId: customerAgro.id, customerName: customerAgro.name, productCategory: 'Zenchang', productName: 'Mesin Sortir PMX-300', source: 'whatsapp', status: 'qualified', assignedSales: sales1.id, lastFollowUp: new Date('2026-06-10'), notes: 'Sudah meeting awal, minta quotation.' },
+      { customerId: customerSumberJaya.id, customerName: customerSumberJaya.name, productCategory: 'VNT', productName: 'VNT Destoner Basic', source: 'iklan', status: 'follow_up', assignedSales: sales2.id, lastFollowUp: new Date('2026-06-09'), notes: 'Follow up besok pagi.' },
+      { customerId: customerMajuBersama.id, customerName: customerMajuBersama.name, productCategory: 'Nordic', productName: 'Nordic Conveyor 5m', source: 'offline', status: 'new', assignedSales: sales1.id, lastFollowUp: new Date('2026-06-08'), notes: '' },
+      { customerId: customerKaryaUtama.id, customerName: customerKaryaUtama.name, productCategory: 'Zenyer', productName: 'Zenyer Cleaner Pro', source: 'whatsapp', status: 'closed_won', assignedSales: sales2.id, lastFollowUp: new Date('2026-06-07'), notes: 'Deal! DP sudah masuk.' },
+      { customerId: customerAgro.id, customerName: customerAgro.name, productCategory: 'Pinecone', productName: 'Pinecone Sifter X2', source: 'whatsapp', status: 'closed_lost', assignedSales: sales1.id, lastFollowUp: new Date('2026-05-20'), notes: 'Budget tidak sesuai.' },
+    ],
+  })
+
+  // ── Projects ─────────────────────────────────────────────────
+  const projectPmx = await prisma.project.create({
+    data: {
+      name: 'Mesin Sortir PMX-300', customerId: customerAgro.id, customerName: customerAgro.name,
+      salesPic: sales1.id, category: 'Zenchang', status: 'active', pipelineStage: 'fabrikasi_build',
+      estimatedValue: 420000000, dpPercentage: 60, dpDate: new Date('2026-06-05'),
+      estimatedDelivery: new Date('2026-07-15'),
+      payments: [
+        { amount: 252000000, percentage: 60, date: '2026-06-05T00:00:00.000Z', status: 'paid' },
+        { amount: 168000000, percentage: 40, date: '2026-06-05T00:00:00.000Z', status: 'pending' },
+      ],
+    },
+  })
+  const projectVnt = await prisma.project.create({
+    data: {
+      name: 'VNT Destoner Basic', customerId: customerSumberJaya.id, customerName: customerSumberJaya.name,
+      salesPic: sales2.id, category: 'VNT', status: 'active', pipelineStage: 'dp_layout',
+      estimatedValue: 280000000, dpPercentage: 30, estimatedDelivery: new Date('2026-07-30'),
+      payments: [{ amount: 84000000, percentage: 30, date: '2026-06-08T00:00:00.000Z', status: 'paid' }],
+    },
+  })
+  const projectZenyer = await prisma.project.create({
+    data: {
+      name: 'Zenyer Cleaner Pro', customerId: customerKaryaUtama.id, customerName: customerKaryaUtama.name,
+      salesPic: sales2.id, category: 'Zenyer', status: 'completed', pipelineStage: 'instalasi',
+      estimatedValue: 195000000, dpPercentage: 100, estimatedDelivery: new Date('2026-06-01'),
+      warrantyStartDate: new Date('2026-06-01'), warrantyEndDate: new Date('2027-06-01'),
+      payments: [{ amount: 195000000, percentage: 100, date: '2026-05-15T00:00:00.000Z', status: 'paid' }],
+    },
+  })
+  await prisma.project.create({
+    data: {
+      name: 'Pinecone Sifter X2', customerId: customerMajuBersama.id, customerName: customerMajuBersama.name,
+      salesPic: sales1.id, category: 'Pinecone', status: 'active', pipelineStage: 'leads',
+      estimatedValue: 175000000, dpPercentage: 0, payments: [],
+    },
+  })
+
+  // ── Quotations ───────────────────────────────────────────────
+  await prisma.quotation.create({
+    data: {
+      projectId: projectPmx.id, customerId: customerAgro.id, requestedBy: sales1.id, createdBy: admin.id,
+      status: 'selesai', deadline: new Date('2026-06-20'),
+      items: [{ description: 'Mesin Sortir PMX-300', qty: 1, unit: 'unit', price: 420000000 }],
+      totalAmount: 420000000,
+    },
+  })
+  await prisma.quotation.create({
+    data: {
+      projectId: projectVnt.id, customerId: customerSumberJaya.id, requestedBy: sales2.id, createdBy: admin.id,
+      status: 'diproses', deadline: new Date('2026-06-22'),
+      items: [{ description: 'VNT Destoner Basic', qty: 1, unit: 'unit', price: 280000000 }],
+      totalAmount: 280000000,
+    },
+  })
+
+  // ── Invoices ─────────────────────────────────────────────────
+  await prisma.invoice.create({
+    data: { projectId: projectPmx.id, customerId: customerAgro.id, invoiceNumber: 'INV-2026-001', createdBy: admin.id, amount: 420000000 },
+  })
+  await prisma.invoice.create({
+    data: { projectId: projectZenyer.id, customerId: customerKaryaUtama.id, invoiceNumber: 'INV-2026-002', createdBy: admin.id, amount: 195000000 },
+  })
+
+  // ── Tasks ────────────────────────────────────────────────────
+  await prisma.task.createMany({
+    data: [
+      { title: 'Follow up PT Agro Makmur', description: 'Konfirmasi keputusan quotation', assignedTo: sales1.id, assignedBy: admin.id, role: 'sales', status: 'pending', priority: 'high', dueDate: new Date('2026-06-20') },
+      { title: 'Siapkan dokumen KTP & NPWP', description: 'Minta scan dokumen customer CV Sumber Jaya', assignedTo: sales2.id, assignedBy: admin.id, role: 'sales', status: 'in_progress', priority: 'medium', dueDate: new Date('2026-06-21') },
+      { title: 'Kirim laporan mingguan', description: 'Rekap leads & closing minggu ini', assignedTo: sales1.id, assignedBy: admin.id, role: 'sales', status: 'done', priority: 'low', dueDate: new Date('2026-06-15') },
+    ],
+  })
+
+  // ── Drawing & BOM Requests ───────────────────────────────────
+  await prisma.drawingRequest.create({
+    data: {
+      projectId: projectPmx.id, requestedBy: sales1.id, assignedTo: [fabrikasi.id],
+      projectName: projectPmx.name, deadline: new Date('2026-06-20'), priority: 'high', status: 'in_progress',
+      attachments: [], resultAttachments: [], notes: 'Perlu gambar 3D dan detail cutting.',
+    },
+  })
+  await prisma.drawingRequest.create({
+    data: {
+      projectId: projectVnt.id, requestedBy: sales2.id, assignedTo: [fabrikasi.id],
+      projectName: projectVnt.name, deadline: new Date('2026-06-25'), priority: 'medium', status: 'pending',
+      attachments: [], resultAttachments: [], notes: '',
+    },
+  })
+
+  await prisma.bomRequest.create({
+    data: { projectId: projectPmx.id, requestedBy: sales1.id, status: 'pending_fabrikasi', attachments: [], visibleTo: ['admin'], notes: 'Butuh BOM lengkap termasuk material listrik.' },
+  })
+  await prisma.bomRequest.create({
+    data: { projectId: projectVnt.id, requestedBy: sales2.id, status: 'pending_admin', attachments: [], visibleTo: ['admin'], notes: '' },
+  })
+
+  // ── Production Gantt ─────────────────────────────────────────
+  const gantt = await prisma.productionGantt.create({
+    data: { projectId: projectPmx.id, projectName: projectPmx.name, salesPic: sales1.id, overallDeadline: new Date('2026-07-15'), status: 'active' },
+  })
+  await prisma.ganttTask.createMany({
+    data: [
+      { ganttId: gantt.id, taskName: 'drawing', deadline: new Date('2026-06-18'), startDate: new Date('2026-06-12'), status: 'done', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'purchase_material', deadline: new Date('2026-06-22'), startDate: new Date('2026-06-19'), status: 'in_progress', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'cutting_laser', deadline: new Date('2026-06-28'), startDate: new Date('2026-06-23'), status: 'pending', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'vendor', deadline: new Date('2026-07-02'), startDate: new Date('2026-06-25'), status: 'pending', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'fabrikasi', deadline: new Date('2026-07-07'), startDate: new Date('2026-07-01'), status: 'pending', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'electrical', deadline: new Date('2026-07-10'), startDate: new Date('2026-07-06'), status: 'pending', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'qc_fat', deadline: new Date('2026-07-12'), startDate: new Date('2026-07-10'), status: 'pending', pic: [fabrikasi.id], notes: [] },
+      { ganttId: gantt.id, taskName: 'instalasi', deadline: new Date('2026-07-15'), startDate: new Date('2026-07-13'), status: 'pending', pic: [fabrikasi.id], notes: [] },
+    ],
+  })
+
+  // ── Warehouse Stock ──────────────────────────────────────────
+  await prisma.warehouseStock.createMany({
+    data: [
+      { name: 'Mesin Sortir PMX-300', category: 'mesin', quantity: 2, unit: 'unit', dimensions: { length: 200, width: 150, height: 180, unit: 'cm' }, weight: 850, status: 'ready' },
+      { name: 'Bearing SKF 6205', category: 'sparepart_pmx', quantity: 5, unit: 'pcs', dimensions: { length: 10, width: 10, height: 5, unit: 'cm' }, weight: 0.5, status: 'ready' },
+      { name: 'V-Belt A-45', category: 'sparepart_basic_destoner', quantity: 2, unit: 'pcs', dimensions: { length: 50, width: 2, height: 1, unit: 'cm' }, weight: 0.2, status: 'low_stock' },
+      { name: 'Baut M10x30', category: 'sparepart_umum', quantity: 0, unit: 'pcs', dimensions: { length: 3, width: 1, height: 1, unit: 'cm' }, weight: 0.05, status: 'out_of_stock' },
+    ],
+  })
+
+  // ── Content Requests ─────────────────────────────────────────
+  await prisma.contentRequest.create({
+    data: { requestedBy: sales1.id, assignedTo: media.id, productName: 'Mesin Sortir PMX-300', description: 'Foto dan video demo mesin, angle 3 sisi.', status: 'in_progress', deadline: new Date('2026-06-25') },
+  })
+  await prisma.contentRequest.create({
+    data: { requestedBy: sales2.id, productName: 'VNT Destoner Basic', description: 'Konten untuk Instagram Reels.', status: 'pending', deadline: new Date('2026-06-30') },
+  })
+
+  // ── Meetings ─────────────────────────────────────────────────
+  await prisma.meeting.create({
+    data: { title: 'Meeting Fabrikasi PMX-300', createdBy: admin.id, participants: [sales1.id, fabrikasi.id], scheduledAt: new Date('2026-06-22T09:00:00'), location: 'Ruang Rapat Lantai 2', agenda: 'Briefing teknis drawing dan BOM untuk PMX-300', status: 'scheduled' },
+  })
+  await prisma.meeting.create({
+    data: { title: 'Review Progress VNT Destoner', createdBy: admin.id, participants: [sales2.id, fabrikasi.id], scheduledAt: new Date('2026-06-13T13:00:00'), location: 'Workshop Fabrikasi', agenda: 'Cek progress fabrikasi dan kendala teknis', status: 'done' },
+  })
+
+  // ── After-Sales ──────────────────────────────────────────────
+  await prisma.afterSales.create({
+    data: { projectId: projectZenyer.id, customerId: customerKaryaUtama.id, warrantyStartDate: new Date('2026-06-01'), warrantyEndDate: new Date('2027-06-01'), warrantyDurationMonths: 12, createdBy: admin.id },
+  })
+
+  // ── Notifications (contoh untuk inbox) ────────────────────────
+  await prisma.notification.createMany({
+    data: [
+      { recipientId: fabrikasi.id, type: 'dp_received', title: 'DP Masuk', message: 'Down Payment telah masuk untuk project Mesin Sortir PMX-300.', relatedId: projectPmx.id, relatedCollection: 'projects', isRead: false },
+      { recipientId: sales1.id, type: 'quotation', title: 'Quotation Siap', message: 'Quotation untuk Mesin Sortir PMX-300 telah selesai dibuat.', relatedId: projectPmx.id, relatedCollection: 'quotations', isRead: true },
+    ],
+  })
+
+  console.log('Dummy data transaksional berhasil dibuat: 4 customers, 5 leads, 4 projects, 2 quotations, 2 invoices, 3 tasks, 2 drawing requests, 2 BOM requests, 1 gantt (8 tasks), 4 stok gudang, 2 content requests, 2 meetings, 1 after-sales, 2 notifikasi.')
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(() => prisma.$disconnect())

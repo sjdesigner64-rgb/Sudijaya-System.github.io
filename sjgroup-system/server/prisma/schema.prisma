@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String
+  isActive  Boolean  @default(true)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id           String    @id @default(cuid())
+  name         String
+  phone        String?
+  email        String?
+  source       String
+  status       String
+  npwp         String?
+  ktpUrl       String?
+  lastFollowUp DateTime?
+  createdBy    String
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  customerId      String
+  customerName    String?
+  productCategory String
+  productName     String
+  source          String
+  status          String
+  assignedSales   String
+  lastFollowUp    DateTime
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Project {
+  id                String    @id @default(cuid())
+  name              String
+  customerId        String
+  customerName      String?
+  salesPic          String
+  category          String
+  status            String
+  pipelineStage     String
+  estimatedValue    Float     @default(0)
+  dpPercentage      Float     @default(0)
+  dpDate            DateTime?
+  fullPaymentDate   DateTime?
+  warrantyStartDate DateTime?
+  warrantyEndDate   DateTime?
+  estimatedDelivery DateTime?
+  payments          Json      @default("[]")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Quotation {
+  id          String   @id @default(cuid())
+  projectId   String
+  customerId  String
+  requestedBy String
+  createdBy   String?
+  status      String
+  deadline    DateTime
+  pdfUrl      String?
+  items       Json
+  totalAmount Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  quotationId     String?
+  projectId       String
+  customerId      String
+  invoiceNumber   String
+  createdBy       String
+  pdfUrl          String?
+  uploadedFileUrl String?
+  amount          Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Task {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?  @db.Text
+  assignedTo   String
+  assignedBy   String
+  role         String
+  status       String
+  priority     String?
+  dueDate      DateTime
+  reminderSent Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DrawingRequest {
+  id                String   @id @default(cuid())
+  projectId         String
+  requestedBy       String
+  assignedTo        Json
+  projectName       String
+  deadline          DateTime
+  priority          String
+  status            String
+  attachments       Json     @default("[]")
+  resultAttachments Json     @default("[]")
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("requests_drawing")
+}
+
+model BomRequest {
+  id          String   @id @default(cuid())
+  projectId   String
+  requestedBy String
+  status      String
+  attachments Json     @default("[]")
+  resultUrl   String?
+  visibleTo   Json     @default("[]")
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("requests_bom")
+}
+
+model ProductionGantt {
+  id              String      @id @default(cuid())
+  projectId       String
+  projectName     String
+  salesPic        String
+  overallDeadline DateTime
+  status          String
+  h7AlertSent     Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  tasks           GanttTask[]
+
+  @@map("production_gantt")
+}
+
+model GanttTask {
+  id            String          @id @default(cuid())
+  ganttId       String
+  gantt         ProductionGantt @relation(fields: [ganttId], references: [id], onDelete: Cascade)
+  taskName      String
+  deadline      DateTime
+  startDate     DateTime?
+  completedDate DateTime?
+  status        String
+  pic           Json            @default("[]")
+  notes         Json            @default("[]")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([ganttId])
+}
+
+model WarehouseStock {
+  id         String   @id @default(cuid())
+  name       String
+  category   String
+  quantity   Int      @default(0)
+  unit       String
+  dimensions Json
+  weight     Float    @default(0)
+  gdriveLink String?
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("warehouse_stock")
+}
+
+model ContentRequest {
+  id          String   @id @default(cuid())
+  requestedBy String
+  assignedTo  String?
+  productName String
+  description String?  @db.Text
+  status      String
+  storageLink String?
+  deadline    DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("content_requests")
+}
+
+model Meeting {
+  id           String   @id @default(cuid())
+  title        String
+  createdBy    String
+  participants Json     @default("[]")
+  scheduledAt  DateTime
+  location     String?
+  agenda       String?  @db.Text
+  notes        String?  @db.Text
+  status       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Notification {
+  id                String   @id @default(cuid())
+  recipientId       String
+  type              String
+  title              String
+  message           String   @db.Text
+  relatedId         String
+  relatedCollection String
+  isRead            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@index([recipientId])
+}
+
+model AfterSales {
+  id                     String   @id @default(cuid())
+  projectId              String
+  customerId             String
+  warrantyStartDate      DateTime
+  warrantyEndDate        DateTime
+  warrantyDurationMonths Int
+  notes                  String?  @db.Text
+  createdBy              String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("after_sales")
+}
+
+model LeadArchive {
+  id         String   @id
+  data       Json
+  archivedAt DateTime @default(now())
+
+  @@map("leads_archive")
+}
