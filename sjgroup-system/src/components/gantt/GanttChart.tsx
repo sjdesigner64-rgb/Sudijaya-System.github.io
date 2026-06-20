@@ -39,10 +39,10 @@ interface NoteModalProps {
 }
 
 function NoteModal({ task, date, onClose, onSave, canEdit }: NoteModalProps) {
-  const [content, setContent] = useState('')
   const existing = task.notes.find(
     (n) => format(new Date(n.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
   )
+  const [content, setContent] = useState(existing?.content ?? '')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -51,16 +51,15 @@ function NoteModal({ task, date, onClose, onSave, canEdit }: NoteModalProps) {
         <p className="text-sm text-muted-foreground mb-3">
           {format(date, 'd MMMM yyyy', { locale: localeId })}
         </p>
-        {existing && (
-          <div className="mb-3 p-2.5 bg-muted rounded-lg text-sm">{existing.content}</div>
-        )}
-        {canEdit && (
+        {canEdit ? (
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Tambah catatan untuk tanggal ini..."
             className="w-full p-2 border border-input rounded-md text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-ring bg-background"
           />
+        ) : (
+          existing && <div className="mb-3 p-2.5 bg-muted rounded-lg text-sm">{existing.content}</div>
         )}
         <div className="flex gap-2 mt-3">
           <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
@@ -86,6 +85,8 @@ interface GanttChartProps {
   canEdit?: boolean
   onStatusChange?: (taskId: string, status: GanttTaskStatus) => void
   onAddNote?: (taskId: string, date: Date, content: string) => void
+  onDeadlineChange?: (taskId: string, date: Date) => void
+  onStartDateChange?: (taskId: string, date: Date) => void
 }
 
 export function GanttChart({
@@ -95,11 +96,15 @@ export function GanttChart({
   canEdit = false,
   onStatusChange,
   onAddNote,
+  onDeadlineChange,
+  onStartDateChange,
 }: GanttChartProps) {
   const today = startOfDay(new Date())
   const [viewStart, setViewStart] = useState(today)
   const DAYS_SHOWN = 14
   const [noteModal, setNoteModal] = useState<{ task: GanttTask; date: Date } | null>(null)
+  const [editingDeadlineId, setEditingDeadlineId] = useState<string | null>(null)
+  const [editingStartId, setEditingStartId] = useState<string | null>(null)
 
   const days = Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(viewStart, i))
 
@@ -170,6 +175,7 @@ export function GanttChart({
               <th className="sticky left-0 bg-muted/50 text-left p-3 font-medium w-36 min-w-[144px] border-b border-r border-border">
                 Task
               </th>
+              <th className="p-3 font-medium border-b border-r border-border w-24">Mulai</th>
               <th className="p-3 font-medium border-b border-r border-border w-24">Deadline</th>
               <th className="p-3 font-medium border-b border-r border-border w-24">Status</th>
               <th className="p-3 font-medium border-b border-border" colSpan={DAYS_SHOWN}>
@@ -201,9 +207,62 @@ export function GanttChart({
                     {TASK_LABELS[task.taskName]}
                   </td>
 
+                  {/* Tanggal Mulai */}
+                  <td className="border-r border-border p-3 text-muted-foreground text-xs">
+                    {canEdit && editingStartId === task.id ? (
+                      <input
+                        type="date"
+                        autoFocus
+                        defaultValue={task.startDate ? format(new Date(task.startDate), 'yyyy-MM-dd') : ''}
+                        onBlur={(e) => {
+                          setEditingStartId(null)
+                          if (e.target.value) onStartDateChange?.(task.id, new Date(e.target.value))
+                        }}
+                        onChange={(e) => {
+                          if (e.target.value) onStartDateChange?.(task.id, new Date(e.target.value))
+                          setEditingStartId(null)
+                        }}
+                        className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => canEdit && setEditingStartId(task.id)}
+                        disabled={!canEdit}
+                        className={cn('text-left', canEdit && 'hover:text-primary hover:underline')}
+                        title={canEdit ? 'Klik untuk ubah tanggal mulai' : undefined}
+                      >
+                        {task.startDate ? format(new Date(task.startDate), 'dd/MM/yy') : (canEdit ? 'Set tanggal' : '-')}
+                      </button>
+                    )}
+                  </td>
+
                   {/* Deadline */}
                   <td className="border-r border-border p-3 text-muted-foreground text-xs">
-                    {task.deadline ? format(new Date(task.deadline), 'dd/MM/yy') : '-'}
+                    {canEdit && editingDeadlineId === task.id ? (
+                      <input
+                        type="date"
+                        autoFocus
+                        defaultValue={format(new Date(task.deadline), 'yyyy-MM-dd')}
+                        onBlur={(e) => {
+                          setEditingDeadlineId(null)
+                          if (e.target.value) onDeadlineChange?.(task.id, new Date(e.target.value))
+                        }}
+                        onChange={(e) => {
+                          if (e.target.value) onDeadlineChange?.(task.id, new Date(e.target.value))
+                          setEditingDeadlineId(null)
+                        }}
+                        className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => canEdit && setEditingDeadlineId(task.id)}
+                        disabled={!canEdit}
+                        className={cn('text-left', canEdit && 'hover:text-primary hover:underline')}
+                        title={canEdit ? 'Klik untuk ubah deadline' : undefined}
+                      >
+                        {task.deadline ? format(new Date(task.deadline), 'dd/MM/yy') : '-'}
+                      </button>
+                    )}
                   </td>
 
                   {/* Status */}

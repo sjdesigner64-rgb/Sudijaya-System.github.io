@@ -13,6 +13,8 @@ import { PaymentPage } from '@/pages/admin/PaymentPage'
 import { AfterSalesPage } from '@/pages/admin/AfterSalesPage'
 import { GanttPage } from '@/pages/fabrikasi/GanttPage'
 import { BomRequestPage } from '@/pages/fabrikasi/BomRequestPage'
+import { ShipmentPage } from '@/pages/fabrikasi/ShipmentPage'
+import { InstallationPage } from '@/pages/fabrikasi/InstallationPage'
 import { WarehousePage } from '@/pages/warehouse/WarehousePage'
 import { ContentPage } from '@/pages/media/ContentPage'
 import { TasksPage } from '@/pages/shared/TasksPage'
@@ -117,8 +119,17 @@ function AppWithAuth() {
               <AfterSalesPage />
             </ProtectedRoute>
           } />
+          <Route path="shipment" element={
+            <ProtectedRoute allowedRoles={['super_admin', 'fabrikasi']}>
+              <ShipmentPage />
+            </ProtectedRoute>
+          } />
+          <Route path="installation" element={
+            <ProtectedRoute allowedRoles={['super_admin', 'fabrikasi']}>
+              <InstallationPage />
+            </ProtectedRoute>
+          } />
           <Route path="inbox" element={<InboxPanel />} />
-          <Route path="reminder" element={<InboxPanel />} />
           <Route path="users" element={
             <ProtectedRoute allowedRoles={['super_admin']}>
               <UsersPage />

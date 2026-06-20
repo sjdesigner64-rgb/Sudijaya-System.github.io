@@ -62,37 +62,51 @@ function NewStockForm({ onClose }: { onClose: () => void }) {
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Nama Item</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Mis. Mesin Sortir PMX-300" />
           </div>
+
+          <div>
+            <label className="text-sm font-medium block mb-1">Kategori</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value as StockCategory)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              {(Object.entries(CATEGORY_LABELS) as [StockCategory, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium block mb-1">Kategori</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as StockCategory)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-                {(Object.entries(CATEGORY_LABELS) as [StockCategory, string][]).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
+              <label className="text-sm font-medium block mb-1">Jumlah</label>
+              <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="0" />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">Jumlah & Satuan</label>
-              <div className="flex gap-1">
-                <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-20 px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" placeholder="0" />
-                <input value={unit} onChange={(e) => setUnit(e.target.value)} className="flex-1 px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" placeholder="unit" />
+              <label className="text-sm font-medium block mb-1">Satuan</label>
+              <input value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="unit / pcs / box" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium block mb-1">Dimensi (cm)</label>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Panjang</label>
+                <input type="number" value={length} onChange={(e) => setLength(e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Lebar</label>
+                <input type="number" value={width} onChange={(e) => setWidth(e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Tinggi</label>
+                <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">Dimensi P × L × T (cm)</label>
-            <div className="flex gap-1">
-              <input type="number" value={length} onChange={(e) => setLength(e.target.value)} placeholder="P" className="flex-1 px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
-              <input type="number" value={width} onChange={(e) => setWidth(e.target.value)} placeholder="L" className="flex-1 px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
-              <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="T" className="flex-1 px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
-            </div>
-          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium block mb-1">Berat (kg)</label>
-              <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="0" />
             </div>
             <div>
               <label className="text-sm font-medium block mb-1">Status</label>
@@ -103,6 +117,7 @@ function NewStockForm({ onClose }: { onClose: () => void }) {
               </select>
             </div>
           </div>
+
           <div>
             <label className="text-sm font-medium block mb-1">Link Google Drive</label>
             <input type="url" value={gdriveLink} onChange={(e) => setGdriveLink(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="https://drive.google.com/..." />

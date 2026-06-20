@@ -62,8 +62,6 @@ export type PipelineStage =
   | 'leads'
   | 'dp_layout'
   | 'meeting_fabrikasi'
-  | 'report_customer'
-  | 'admin_order'
   | 'fabrikasi_build'
   | 'pelunasan'
   | 'pengiriman'
@@ -74,6 +72,11 @@ export interface Payment {
   percentage: number
   date: Date
   status: 'pending' | 'paid'
+}
+
+export interface MeetingNote {
+  date: Date
+  notes: string
 }
 
 export interface Project {
@@ -93,6 +96,7 @@ export interface Project {
   warrantyEndDate?: Date
   estimatedDelivery?: Date
   payments: Payment[]
+  meetingNotes: MeetingNote[]
 }
 
 // ─── Quotation ────────────────────────────────────────────────────────────────
@@ -255,6 +259,43 @@ export interface WarehouseStock {
   updatedAt: Date
 }
 
+// ─── Shipment (Pengiriman) ──────────────────────────────────────────────────────
+export type ItemCondition = 'baru' | 'bekas' | 'servis' | 'retur'
+
+export interface Shipment {
+  id: string
+  projectId: string
+  projectName?: string
+  sku: string
+  quantity: number
+  weight: number
+  dimensions: Dimensions
+  condition: ItemCondition
+  address: string
+  picPengiriman: string
+  packingNotes?: string
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ─── Installation (Instalasi) ───────────────────────────────────────────────────
+export type InstallationStatus = 'pending' | 'dijadwalkan' | 'reschedule' | 'selesai'
+
+export interface Installation {
+  id: string
+  projectId: string
+  projectName?: string
+  picInstalasi: string
+  installationDate: Date
+  estimatedDuration: string
+  deadline: Date
+  status: InstallationStatus
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 // ─── Content Request ──────────────────────────────────────────────────────────
 export interface ContentRequest {
   id: string
@@ -308,15 +349,30 @@ export interface Notification {
   createdAt: Date
 }
 
-// ─── After Sales ──────────────────────────────────────────────────────────────
+// ─── After Sales (Service Ticket) ──────────────────────────────────────────────
+export type ComplaintType = 'kerusakan' | 'instalasi' | 'training' | 'sparepart' | 'maintenance'
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type TicketStatus = 'baru' | 'diproses' | 'menunggu_sparepart' | 'selesai' | 'cancel'
+export type WarrantyStatus = 'aktif' | 'habis' | 'tidak_garansi'
+
 export interface AfterSales {
   id: string
-  projectId: string
+  reportDate: Date
   customerId: string
-  warrantyStartDate: Date
-  warrantyEndDate: Date
-  warrantyDurationMonths: number
-  notes?: string
+  customerName?: string
+  machineName: string
+  complaintType: ComplaintType
+  problemDescription: string
+  mediaUrl?: string
+  priority: TicketPriority
+  ticketStatus: TicketStatus
+  picAftersales: string
+  technicianAssigned?: string
+  purchaseDate?: Date
+  installationDate?: Date
+  warrantyPeriod?: string
+  warrantyStatus: WarrantyStatus
+  handlingDeadline?: Date
   createdBy: string
   updatedAt: Date
 }

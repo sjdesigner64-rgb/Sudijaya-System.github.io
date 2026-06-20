@@ -13,8 +13,6 @@ const STAGE_LABELS: Record<PipelineStage, string> = {
   leads: 'Leads',
   dp_layout: 'DP + Layout',
   meeting_fabrikasi: 'Meeting Fabrikasi',
-  report_customer: 'Report ke Customer',
-  admin_order: 'Admin Order',
   fabrikasi_build: 'Build Produk',
   pelunasan: 'Pelunasan',
   pengiriman: 'Pengiriman',

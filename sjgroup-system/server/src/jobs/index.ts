@@ -24,21 +24,31 @@ const sendDailyReminder = async () => {
   }
 }
 
-// sendWarrantyAlert — daily 08:00, checks H-30/H-7/H-1
+// sendWarrantyAlert — daily 08:00, alert tiket after-sales yang belum selesai dan mendekati/lewat handlingDeadline
 const sendWarrantyAlert = async () => {
-  const records = await prisma.afterSales.findMany()
+  const records = await prisma.afterSales.findMany({
+    where: { ticketStatus: { notIn: ['selesai', 'cancel'] }, handlingDeadline: { not: null } },
+  })
   const adminUsers = await getActiveUsersByRole(['admin', 'super_admin'])
-  if (adminUsers.length === 0) return
   const now = Date.now()
 
   for (const record of records) {
-    const daysLeft = Math.round((record.warrantyEndDate.getTime() - now) / DAY_MS)
-    if (!ALERT_DAYS_BEFORE.includes(daysLeft)) continue
+    if (!record.handlingDeadline) continue
+    const daysLeft = Math.round((record.handlingDeadline.getTime() - now) / DAY_MS)
+    if (!ALERT_DAYS_BEFORE.includes(daysLeft) && daysLeft >= 0) continue
+    if (daysLeft < -1) continue // jangan spam tiket yang sudah lama lewat deadline
 
-    await notifyUsers(adminUsers.map((u) => u.id), {
+    const recipientIds = [...adminUsers.map((u) => u.id), record.picAftersales, record.technicianAssigned].filter(
+      (v): v is string => Boolean(v)
+    )
+    const message = daysLeft >= 0
+      ? `Tiket after-sales "${record.machineName}" (${record.customerName ?? '-'}) jatuh tempo dalam ${daysLeft} hari.`
+      : `Tiket after-sales "${record.machineName}" (${record.customerName ?? '-'}) sudah melewati deadline penanganan.`
+
+    await notifyUsers([...new Set(recipientIds)], {
       type: 'warranty',
-      title: 'Garansi Akan Berakhir',
-      message: `Masa garansi project akan berakhir dalam ${daysLeft} hari (${record.warrantyEndDate.toLocaleDateString('id-ID')}).`,
+      title: 'Deadline Penanganan Tiket',
+      message,
       relatedId: record.id,
       relatedCollection: 'after_sales',
     })

@@ -212,7 +212,14 @@ async function main() {
 
   // ── After-Sales ──────────────────────────────────────────────
   await prisma.afterSales.create({
-    data: { projectId: projectZenyer.id, customerId: customerKaryaUtama.id, warrantyStartDate: new Date('2026-06-01'), warrantyEndDate: new Date('2027-06-01'), warrantyDurationMonths: 12, createdBy: admin.id },
+    data: {
+      reportDate: new Date('2026-06-10'), customerId: customerKaryaUtama.id, customerName: customerKaryaUtama.name,
+      machineName: 'Zenyer Cleaner Pro', complaintType: 'maintenance', problemDescription: 'Permintaan maintenance rutin 6 bulan pertama.',
+      priority: 'low', ticketStatus: 'selesai', picAftersales: sales2.id, technicianAssigned: fabrikasi.id,
+      purchaseDate: new Date('2026-05-15'), installationDate: new Date('2026-06-01'),
+      warrantyPeriod: '1 tahun', warrantyStatus: 'aktif', handlingDeadline: new Date('2026-06-15'),
+      createdBy: admin.id,
+    },
   })
 
   // ── Notifications (contoh untuk inbox) ────────────────────────

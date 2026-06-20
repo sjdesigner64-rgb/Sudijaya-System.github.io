@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FileText, Receipt, CreditCard,
   ClipboardList, Calendar, BarChart2, Package, Image,
-  Bell, Settings, ChevronLeft, Factory, Layers,
-  Inbox, ShieldCheck,
+  Settings, ChevronLeft, Layers,
+  Inbox, ShieldCheck, Truck, Wrench,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/utils/cn'
@@ -25,14 +25,15 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/payment', label: 'Payment Tracking', icon: <CreditCard className="h-4 w-4" />, roles: ['super_admin', 'admin'] },
   { to: '/tasks', label: 'Daily Task', icon: <ClipboardList className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/meetings', label: 'Jadwal Meeting', icon: <Calendar className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi', 'warehouse', 'media'] },
-  { to: '/gantt', label: 'Gantt Chart', icon: <Layers className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
+  { to: '/gantt', label: 'Project Fabrikasi', icon: <Layers className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
   { to: '/drawing-request', label: 'Request Gambar', icon: <Image className="h-4 w-4" />, roles: ['super_admin', 'sales', 'fabrikasi'] },
   { to: '/bom-request', label: 'Request BOM', icon: <ClipboardList className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
   { to: '/warehouse', label: 'Stok Warehouse', icon: <Package className="h-4 w-4" />, roles: ['super_admin', 'admin', 'warehouse'] },
   { to: '/content', label: 'Konten Media', icon: <Image className="h-4 w-4" />, roles: ['super_admin', 'sales', 'media'] },
   { to: '/after-sales', label: 'After-Sales', icon: <ShieldCheck className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
+  { to: '/shipment', label: 'Pengiriman', icon: <Truck className="h-4 w-4" />, roles: ['super_admin', 'fabrikasi'] },
+  { to: '/installation', label: 'Instalasi', icon: <Wrench className="h-4 w-4" />, roles: ['super_admin', 'fabrikasi'] },
   { to: '/inbox', label: 'Inbox', icon: <Inbox className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi', 'warehouse', 'media'] },
-  { to: '/reminder', label: 'Reminder', icon: <Bell className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi', 'warehouse', 'media'] },
   { to: '/users', label: 'Kelola User', icon: <Settings className="h-4 w-4" />, roles: ['super_admin'] },
 ]
 

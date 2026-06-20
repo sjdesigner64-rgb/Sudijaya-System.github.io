@@ -2,15 +2,6 @@ import { Router } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
-import { getActiveUsersByRole, notifyUsers } from '../lib/notify'
-import { advanceProjectStage } from '../lib/pipelineStage'
-
-interface PaymentEntry {
-  status: 'pending' | 'paid'
-}
-
-const countPaid = (payments: unknown) =>
-  (Array.isArray(payments) ? (payments as PaymentEntry[]) : []).filter((p) => p.status === 'paid').length
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
 const coerceDates = (value: unknown): unknown => {
@@ -45,51 +36,36 @@ router.get('/', async (req, res) => {
     }
   }
 
-  const docs = await prisma.project.findMany({ where, orderBy })
+  const docs = await prisma.afterSales.findMany({ where, orderBy })
   res.json(docs)
 })
 
 router.get('/:id', async (req, res) => {
-  const doc = await prisma.project.findUnique({ where: { id: req.params.id } })
+  const doc = await prisma.afterSales.findUnique({ where: { id: req.params.id } })
   if (!doc) return res.status(404).json({ error: 'Not found' })
   res.json(doc)
 })
 
 router.post('/', async (req, res) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await prisma.project.create({ data: coerceBody(req.body) as any })
-  emitChange('projects')
+  const doc = await prisma.afterSales.create({ data: coerceBody(req.body) as any })
+  emitChange('after_sales')
   res.json(doc)
 })
 
 router.put('/:id', async (req, res) => {
-  const before = await prisma.project.findUnique({ where: { id: req.params.id } })
-  const doc = await prisma.project.update({ where: { id: req.params.id }, data: coerceBody(req.body) })
-  emitChange('projects')
-
-  const paidBefore = countPaid(before?.payments)
-  const paidAfter = countPaid(doc.payments)
-  if (paidBefore === 0 && paidAfter > 0) {
-    await advanceProjectStage(doc.id, 'dp_layout')
-
-    const fabrikasiUsers = await getActiveUsersByRole(['fabrikasi'])
-    if (fabrikasiUsers.length > 0) {
-      await notifyUsers(fabrikasiUsers.map((u) => u.id), {
-        type: 'dp_received',
-        title: 'DP Masuk',
-        message: `Down Payment telah masuk untuk project "${doc.name}". Segera mulai proses produksi.`,
-        relatedId: doc.id,
-        relatedCollection: 'projects',
-      })
-    }
-  }
-
+  const doc = await prisma.afterSales.update({
+    where: { id: req.params.id },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: coerceBody(req.body) as any,
+  })
+  emitChange('after_sales')
   res.json(doc)
 })
 
 router.delete('/:id', async (req, res) => {
-  await prisma.project.delete({ where: { id: req.params.id } })
-  emitChange('projects')
+  await prisma.afterSales.delete({ where: { id: req.params.id } })
+  emitChange('after_sales')
   res.json({ success: true })
 })
 

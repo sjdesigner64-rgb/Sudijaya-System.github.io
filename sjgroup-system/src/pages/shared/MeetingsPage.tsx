@@ -1,27 +1,39 @@
 import { useEffect, useState } from 'react'
-import { Plus, Calendar, MapPin, Users, Loader2 } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { Meeting, MeetingStatus, User } from '@/types'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
 import { useAuthStore } from '@/store/authStore'
-import { createDoc, subscribeToCollection } from '@/services/firestore.service'
+import { createDoc, updateDocument, deleteDocument, subscribeToCollection } from '@/services/firestore.service'
 
 const STATUS_COLORS: Record<MeetingStatus, string> = {
   scheduled: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
   done: 'bg-green-100 dark:bg-green-900 text-green-700',
   cancelled: 'bg-red-100 dark:bg-red-900 text-red-700',
 }
+const STATUS_TEXT_LABELS: Record<MeetingStatus, string> = {
+  scheduled: 'Terjadwal',
+  done: 'Selesai',
+  cancelled: 'Dibatalkan',
+}
 
-function NewMeetingForm({ users, onClose }: { users: User[]; onClose: () => void }) {
+interface MeetingFormProps {
+  users: User[]
+  initial?: Meeting
+  onClose: () => void
+}
+
+function MeetingForm({ users, initial, onClose }: MeetingFormProps) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
-  const [title, setTitle] = useState('')
-  const [scheduledAt, setScheduledAt] = useState('')
-  const [location, setLocation] = useState('')
-  const [agenda, setAgenda] = useState('')
-  const [participantIds, setParticipantIds] = useState<string[]>([])
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [scheduledAt, setScheduledAt] = useState(initial ? initial.scheduledAt.toISOString().slice(0, 16) : '')
+  const [location, setLocation] = useState(initial?.location ?? '')
+  const [agenda, setAgenda] = useState(initial?.agenda ?? '')
+  const [status, setStatus] = useState<MeetingStatus>(initial?.status ?? 'scheduled')
+  const [participantIds, setParticipantIds] = useState<string[]>(initial?.participants ?? [])
 
   const toggleParticipant = (id: string) =>
     setParticipantIds((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id])
@@ -30,15 +42,19 @@ function NewMeetingForm({ users, onClose }: { users: User[]; onClose: () => void
     if (!title.trim() || !scheduledAt || !user) return
     setSaving(true)
     try {
-      await createDoc('meetings', {
+      const data = {
         title,
-        createdBy: user.id,
         participants: participantIds,
         scheduledAt: new Date(scheduledAt),
         location,
         agenda,
-        status: 'scheduled',
-      })
+        status,
+      }
+      if (initial) {
+        await updateDocument('meetings', initial.id, data)
+      } else {
+        await createDoc('meetings', { ...data, createdBy: user.id, status: 'scheduled' })
+      }
       onClose()
     } finally {
       setSaving(false)
@@ -48,7 +64,7 @@ function NewMeetingForm({ users, onClose }: { users: User[]; onClose: () => void
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
-        <h3 className="font-semibold mb-4">Buat Jadwal Meeting</h3>
+        <h3 className="font-semibold mb-4">{initial ? 'Edit Jadwal Meeting' : 'Buat Jadwal Meeting'}</h3>
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Judul Meeting</label>
@@ -64,6 +80,16 @@ function NewMeetingForm({ users, onClose }: { users: User[]; onClose: () => void
               <input value={location} onChange={(e) => setLocation(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
+          {initial && (
+            <div>
+              <label className="text-sm font-medium block mb-1">Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value as MeetingStatus)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="scheduled">Terjadwal</option>
+                <option value="done">Selesai</option>
+                <option value="cancelled">Dibatalkan</option>
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium block mb-1">Agenda</label>
             <textarea value={agenda} onChange={(e) => setAgenda(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none h-20" />
@@ -104,7 +130,8 @@ export function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
-  const canCreate = user?.role === 'admin' || user?.role === 'super_admin'
+  const [editMeeting, setEditMeeting] = useState<Meeting | undefined>()
+  const canManage = user?.role === 'admin' || user?.role === 'super_admin'
 
   useEffect(() => {
     const unsubM = subscribeToCollection('meetings', [], (docs) => {
@@ -121,6 +148,11 @@ export function MeetingsPage() {
   const participantNames = (ids: string[]) =>
     ids.map((id) => users.find((u) => u.id === id)?.name ?? id).join(', ')
 
+  const handleDelete = async (meeting: Meeting) => {
+    if (!confirm(`Hapus jadwal meeting "${meeting.title}"?`)) return
+    await deleteDocument('meetings', meeting.id)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -128,9 +160,9 @@ export function MeetingsPage() {
           <h1 className="text-lg font-semibold">Jadwal Meeting</h1>
           <p className="text-sm text-muted-foreground">Jadwal meeting antar departemen</p>
         </div>
-        {canCreate && (
+        {canManage && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setEditMeeting(undefined); setShowForm(true) }}
             className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
@@ -145,11 +177,11 @@ export function MeetingsPage() {
             <div className="flex items-start justify-between mb-2">
               <h3 className="font-medium">{meeting.title}</h3>
               <span className={cn('text-xs px-2 py-0.5 rounded-full', STATUS_COLORS[meeting.status])}>
-                {meeting.status === 'scheduled' ? 'Terjadwal' : meeting.status === 'done' ? 'Selesai' : 'Dibatalkan'}
+                {STATUS_TEXT_LABELS[meeting.status]}
               </span>
             </div>
             <p className="text-sm text-muted-foreground mb-3">{meeting.agenda}</p>
-            <div className="grid sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+            <div className="grid sm:grid-cols-3 gap-2 text-xs text-muted-foreground mb-3">
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
                 {format(meeting.scheduledAt, "d MMM yyyy, HH:mm", { locale: localeId })}
@@ -163,6 +195,14 @@ export function MeetingsPage() {
                 {participantNames(meeting.participants)}
               </div>
             </div>
+            {canManage && (
+              <div className="flex items-center gap-3 border-t border-border pt-2">
+                <button onClick={() => { setEditMeeting(meeting); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                <button onClick={() => handleDelete(meeting)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {meetings.length === 0 && (
@@ -172,7 +212,9 @@ export function MeetingsPage() {
         )}
       </div>
 
-      {showForm && <NewMeetingForm users={users} onClose={() => setShowForm(false)} />}
+      {showForm && (
+        <MeetingForm users={users} initial={editMeeting} onClose={() => { setShowForm(false); setEditMeeting(undefined) }} />
+      )}
     </div>
   )
 }

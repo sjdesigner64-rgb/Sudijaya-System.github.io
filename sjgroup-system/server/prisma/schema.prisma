@@ -67,6 +67,7 @@ model Project {
   warrantyEndDate   DateTime?
   estimatedDelivery DateTime?
   payments          Json      @default("[]")
+  meetingNotes      Json      @default("[]")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }
@@ -196,6 +197,41 @@ model WarehouseStock {
   @@map("warehouse_stock")
 }
 
+model Shipment {
+  id            String   @id @default(cuid())
+  projectId     String
+  projectName   String?
+  sku           String
+  quantity      Int      @default(0)
+  weight        Float    @default(0)
+  dimensions    Json
+  condition     String
+  address       String?  @db.Text
+  picPengiriman String
+  packingNotes  String?  @db.Text
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("shipments")
+}
+
+model Installation {
+  id                String   @id @default(cuid())
+  projectId         String
+  projectName       String?
+  picInstalasi      String
+  installationDate  DateTime
+  estimatedDuration String?
+  deadline          DateTime
+  status            String
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("installations")
+}
+
 model ContentRequest {
   id          String   @id @default(cuid())
   requestedBy String
@@ -240,16 +276,26 @@ model Notification {
 }
 
 model AfterSales {
-  id                     String   @id @default(cuid())
-  projectId              String
-  customerId             String
-  warrantyStartDate      DateTime
-  warrantyEndDate        DateTime
-  warrantyDurationMonths Int
-  notes                  String?  @db.Text
-  createdBy              String
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  reportDate          DateTime
+  customerId          String
+  customerName        String?
+  machineName         String
+  complaintType       String
+  problemDescription  String?   @db.Text
+  mediaUrl            String?
+  priority            String
+  ticketStatus        String
+  picAftersales       String
+  technicianAssigned  String?
+  purchaseDate        DateTime?
+  installationDate    DateTime?
+  warrantyPeriod      String?
+  warrantyStatus      String
+  handlingDeadline    DateTime?
+  createdBy           String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@map("after_sales")
 }

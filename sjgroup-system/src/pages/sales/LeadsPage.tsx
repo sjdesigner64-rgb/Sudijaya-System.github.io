@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, Loader2 } from 'lucide-react'
+import { Plus, Search, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
-import type { Lead, LeadStatus, ProductCategory, CustomerSource } from '@/types'
+import type { Lead, LeadStatus, ProductCategory, CustomerSource, Customer, User } from '@/types'
 import { useAuthStore } from '@/store/authStore'
-import { createDoc, updateDocument, subscribeToCollection } from '@/services/firestore.service'
+import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new: 'Baru',
@@ -28,16 +28,22 @@ const SOURCE_LABELS: Record<CustomerSource, string> = {
   offline: 'Offline',
 }
 
+const NEW_CUSTOMER_VALUE = '__new__'
+
 interface LeadFormProps {
+  customers: Customer[]
+  salesUsers: User[]
   onClose: () => void
   initial?: Lead
 }
 
-function LeadForm({ onClose, initial }: LeadFormProps) {
+function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? customers[0]?.id ?? NEW_CUSTOMER_VALUE)
+  const [newCustomerName, setNewCustomerName] = useState(initial?.customerName ?? '')
+  const [assignedSales, setAssignedSales] = useState(initial?.assignedSales ?? user?.id ?? salesUsers[0]?.id ?? '')
   const [form, setForm] = useState({
-    customerName: initial?.customerName ?? '',
     productCategory: initial?.productCategory ?? 'Zenchang' as ProductCategory,
     productName: initial?.productName ?? '',
     source: initial?.source ?? 'whatsapp' as CustomerSource,
@@ -45,38 +51,49 @@ function LeadForm({ onClose, initial }: LeadFormProps) {
     notes: initial?.notes ?? '',
   })
 
+  const isNewCustomer = customerId === NEW_CUSTOMER_VALUE
+
   const handleSave = async () => {
-    if (!form.customerName.trim() || !user) return
+    if (!user || !assignedSales) return
+    if (isNewCustomer && !newCustomerName.trim()) return
+    if (!isNewCustomer && !customerId) return
     setSaving(true)
     try {
       if (initial) {
         await updateDocument('leads', initial.id, {
-          customerName: form.customerName,
           productCategory: form.productCategory,
           productName: form.productName,
           source: form.source,
           status: form.status,
           notes: form.notes,
+          assignedSales,
         })
       } else {
-        const customerId = await createDoc('customers', {
-          name: form.customerName,
-          phone: '',
-          email: '',
-          source: form.source,
-          status: 'lead',
-          isActive: true,
-          lastFollowUp: new Date(),
-          createdBy: user.id,
-        })
+        let finalCustomerId = customerId
+        let finalCustomerName = customers.find((c) => c.id === customerId)?.name ?? ''
+
+        if (isNewCustomer) {
+          finalCustomerName = newCustomerName
+          finalCustomerId = await createDoc('customers', {
+            name: newCustomerName,
+            phone: '',
+            email: '',
+            source: form.source,
+            status: 'lead',
+            isActive: true,
+            lastFollowUp: new Date(),
+            createdBy: user.id,
+          })
+        }
+
         await createDoc('leads', {
-          customerId,
-          customerName: form.customerName,
+          customerId: finalCustomerId,
+          customerName: finalCustomerName,
           productCategory: form.productCategory,
           productName: form.productName,
           source: form.source,
           status: form.status,
-          assignedSales: user.id,
+          assignedSales,
           lastFollowUp: new Date(),
           notes: form.notes,
         })
@@ -93,13 +110,41 @@ function LeadForm({ onClose, initial }: LeadFormProps) {
         <h3 className="font-semibold mb-4">{initial ? 'Edit Lead' : 'Tambah Lead Baru'}</h3>
         <div className="space-y-3">
           <div>
-            <label className="text-sm font-medium block mb-1">Nama Customer</label>
-            <input
-              value={form.customerName}
-              onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+            <label className="text-sm font-medium block mb-1">Customer</label>
+            {initial ? (
+              <input value={initial.customerName} disabled className="w-full px-3 py-2 border border-input rounded-md text-sm bg-muted text-muted-foreground" />
+            ) : (
+              <select
+                value={customerId}
+                onChange={(e) => setCustomerId(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+                <option value={NEW_CUSTOMER_VALUE}>+ Customer Baru</option>
+              </select>
+            )}
+            {!initial && isNewCustomer && (
+              <input
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+                className="w-full mt-2 px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Nama customer / perusahaan baru"
+              />
+            )}
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">PIC Sales</label>
+            <select
+              value={assignedSales}
+              onChange={(e) => setAssignedSales(e.target.value)}
               className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Nama customer / perusahaan"
-            />
+            >
+              {salesUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -172,13 +217,15 @@ function LeadForm({ onClose, initial }: LeadFormProps) {
 
 export function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
   const [editLead, setEditLead] = useState<Lead | undefined>()
+  const [salesUsers, setSalesUsers] = useState<User[]>([])
 
   useEffect(() => {
-    const unsubscribe = subscribeToCollection('leads', [], (docs) => {
+    const unsubL = subscribeToCollection('leads', [], (docs) => {
       setLeads(
         docs.map((d) => ({
           ...d,
@@ -186,8 +233,16 @@ export function LeadsPage() {
         })) as unknown as Lead[]
       )
     })
-    return unsubscribe
+    const unsubC = subscribeToCollection('customers', [], (docs) => {
+      setCustomers(docs as unknown as Customer[])
+    })
+    const unsubS = subscribeToCollection('users', [where('role', '==', 'sales')], (docs) => {
+      setSalesUsers(docs as unknown as User[])
+    })
+    return () => { unsubL(); unsubC(); unsubS() }
   }, [])
+
+  const salesName = (id: string) => salesUsers.find((u) => u.id === id)?.name ?? '-'
 
   const filtered = leads.filter((l) => {
     const matchSearch = l.customerName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -195,6 +250,11 @@ export function LeadsPage() {
     const matchStatus = filterStatus === 'all' || l.status === filterStatus
     return matchSearch && matchStatus
   })
+
+  const handleDelete = async (lead: Lead) => {
+    if (!confirm(`Hapus lead "${lead.customerName}"?`)) return
+    await deleteDocument('leads', lead.id)
+  }
 
   return (
     <div className="space-y-4">
@@ -260,7 +320,8 @@ export function LeadsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="text-left p-3 font-medium text-muted-foreground">Customer</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Nama Customer</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">PIC Sales</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Produk</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Brand</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Sumber</th>
@@ -273,6 +334,7 @@ export function LeadsPage() {
               {filtered.map((lead) => (
                 <tr key={lead.id} className="hover:bg-muted/20 transition-colors">
                   <td className="p-3 font-medium">{lead.customerName}</td>
+                  <td className="p-3 text-muted-foreground text-xs">{salesName(lead.assignedSales)}</td>
                   <td className="p-3 text-muted-foreground">{lead.productName}</td>
                   <td className="p-3">
                     <span className="px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded">
@@ -289,12 +351,21 @@ export function LeadsPage() {
                     </span>
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => { setEditLead(lead); setShowForm(true) }}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setEditLead(lead); setShowForm(true) }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(lead)}
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Hapus"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -310,6 +381,8 @@ export function LeadsPage() {
 
       {showForm && (
         <LeadForm
+          customers={customers}
+          salesUsers={salesUsers}
           initial={editLead}
           onClose={() => { setShowForm(false); setEditLead(undefined) }}
         />
