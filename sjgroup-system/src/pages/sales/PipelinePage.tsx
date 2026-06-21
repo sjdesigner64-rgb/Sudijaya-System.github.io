@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Loader2, Trash2, Check, ExternalLink } from 'lucide-react'
+import { Plus, Loader2, Trash2, Check, ExternalLink, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -8,6 +8,10 @@ import { toDate } from '@/utils/firestore'
 import type { Project, PipelineStage, ProductCategory, Customer, MeetingNote, User } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
   leads: 'Leads',
@@ -275,6 +279,11 @@ export function PipelinePage() {
   const [showForm, setShowForm] = useState(false)
   const [editProject, setEditProject] = useState<Project | undefined>()
   const [trackProject, setTrackProject] = useState<Project | undefined>()
+  const [search, setSearch] = useState('')
+  const [filterStage, setFilterStage] = useState<PipelineStage | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubP = subscribeToCollection('projects', [], (docs) => {
@@ -297,22 +306,57 @@ export function PipelinePage() {
     if (fresh) setTrackProject(fresh)
   }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDelete = async (project: Project) => {
-    if (!confirm(`Hapus project "${project.name}"?`)) return
-    await deleteDocument('projects', project.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('projects', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const filtered = items.filter((item) => {
+    const q = search.toLowerCase()
+    const matchSearch = item.name.toLowerCase().includes(q) || (item.customerName ?? '').toLowerCase().includes(q)
+    const matchStage = filterStage === 'all' || item.pipelineStage === filterStage
+    return matchSearch && matchStage
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Pipeline Project</h1>
+          <h1 className="text-lg font-semibold">Project Sales</h1>
           <p className="text-sm text-muted-foreground">Tracking progress per stage dari leads ke instalasi</p>
         </div>
         <button onClick={() => { setEditProject(undefined); setShowForm(true) }} className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90">
           <Plus className="h-4 w-4" />
           Tambah Project
         </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari nama project atau customer..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStage}
+          onChange={(e) => { setFilterStage(e.target.value as PipelineStage | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Tahap</option>
+          {STAGES.map((s) => (<option key={s} value={s}>{STAGE_LABELS[s]}</option>))}
+        </select>
       </div>
 
       {/* Summary */}
@@ -346,7 +390,7 @@ export function PipelinePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {items.map((item) => (
+              {paginated.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/20">
                   <td className="p-3 font-medium">{item.name}</td>
                   <td className="p-3 text-muted-foreground">{item.customerName}</td>
@@ -358,14 +402,14 @@ export function PipelinePage() {
                     <div className="flex items-center gap-3">
                       <button onClick={() => setTrackProject(item)} className="text-xs text-primary hover:underline">Track</button>
                       <button onClick={() => { setEditProject(item); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
-                      <button onClick={() => handleDelete(item)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                      <button onClick={() => setDeleteTarget(item)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && (
+              {filtered.length === 0 && (
                 <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Belum ada project</td></tr>
               )}
             </tbody>
@@ -373,11 +417,22 @@ export function PipelinePage() {
         </div>
       </div>
 
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
       {showForm && (
         <ProjectForm customers={customers} salesUsers={salesUsers} initial={editProject} onClose={() => { setShowForm(false); setEditProject(undefined) }} />
       )}
       {trackProject && (
         <TrackModal project={trackProject} onClose={() => setTrackProject(undefined)} />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus project "${deleteTarget.name}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   )

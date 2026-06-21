@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, FileText, Receipt, CreditCard,
   ClipboardList, Calendar, BarChart2, Package, Image,
   Settings, ChevronLeft, Layers,
-  Inbox, ShieldCheck, Truck, Wrench,
+  Inbox, ShieldCheck, Truck, Wrench, FolderOpen, Film,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/utils/cn'
@@ -19,7 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, roles: ['super_admin', 'admin'] },
   { to: '/leads', label: 'CRM Leads', icon: <Users className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
-  { to: '/pipeline', label: 'Pipeline Project', icon: <BarChart2 className="h-4 w-4" />, roles: ['super_admin', 'sales'] },
+  { to: '/pipeline', label: 'Project Sales', icon: <BarChart2 className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/quotation', label: 'Quotation', icon: <FileText className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/invoice', label: 'Invoice', icon: <Receipt className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/payment', label: 'Payment Tracking', icon: <CreditCard className="h-4 w-4" />, roles: ['super_admin', 'admin'] },
@@ -29,7 +29,9 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/drawing-request', label: 'Request Gambar', icon: <Image className="h-4 w-4" />, roles: ['super_admin', 'sales', 'fabrikasi'] },
   { to: '/bom-request', label: 'Request BOM', icon: <ClipboardList className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
   { to: '/warehouse', label: 'Stok Warehouse', icon: <Package className="h-4 w-4" />, roles: ['super_admin', 'admin', 'warehouse'] },
-  { to: '/content', label: 'Konten Media', icon: <Image className="h-4 w-4" />, roles: ['super_admin', 'sales', 'media'] },
+  { to: '/content', label: 'Request Konten', icon: <Image className="h-4 w-4" />, roles: ['super_admin', 'sales', 'media'] },
+  { to: '/media-assets', label: 'Asset Media', icon: <FolderOpen className="h-4 w-4" />, roles: ['super_admin', 'media'] },
+  { to: '/content-data', label: 'Data Konten', icon: <Film className="h-4 w-4" />, roles: ['super_admin', 'media'] },
   { to: '/after-sales', label: 'After-Sales', icon: <ShieldCheck className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/shipment', label: 'Pengiriman', icon: <Truck className="h-4 w-4" />, roles: ['super_admin', 'fabrikasi'] },
   { to: '/installation', label: 'Instalasi', icon: <Wrench className="h-4 w-4" />, roles: ['super_admin', 'fabrikasi'] },

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Plus, Check, Loader2 } from 'lucide-react'
+import { Plus, Check, Loader2, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
 import type { Project, Payment } from '@/types'
 import { subscribeToCollection, updateDocument } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+
+const PAGE_SIZE = 10
 
 const currency = (n: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(n)
@@ -95,6 +98,9 @@ function NewPaymentPlanForm({ projects, onClose }: { projects: Project[]; onClos
 export function PaymentPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'lunas' | 'belum_lunas'>('all')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const unsubscribe = subscribeToCollection('projects', [], (docs) => {
@@ -109,6 +115,14 @@ export function PaymentPage() {
   }, [])
 
   const records = projects.filter((p) => p.payments.length > 0)
+  const filtered = records.filter((rec) => {
+    const q = search.toLowerCase()
+    const matchSearch = rec.name.toLowerCase().includes(q) || (rec.customerName ?? '').toLowerCase().includes(q)
+    const isLunas = rec.payments.every((p) => p.status === 'paid')
+    const matchStatus = filterStatus === 'all' || (filterStatus === 'lunas' ? isLunas : !isLunas)
+    return matchSearch && matchStatus
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const markPaid = async (project: Project, index: number) => {
     const newPayments = project.payments.map((p, i) =>
@@ -134,8 +148,30 @@ export function PaymentPage() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari nama project atau customer..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Status</option>
+          <option value="lunas">Lunas</option>
+          <option value="belum_lunas">Belum Lunas</option>
+        </select>
+      </div>
+
       <div className="space-y-4">
-        {records.map((rec) => {
+        {paginated.map((rec) => {
           const paid = rec.payments.filter((p) => p.status === 'paid').reduce((s, p) => s + p.amount, 0)
           const paidPct = rec.estimatedValue > 0 ? Math.round((paid / rec.estimatedValue) * 100) : 0
 
@@ -195,12 +231,14 @@ export function PaymentPage() {
             </div>
           )
         })}
-        {records.length === 0 && (
+        {filtered.length === 0 && (
           <div className="py-12 text-center text-muted-foreground text-sm bg-card border border-border rounded-xl">
             Belum ada rencana pembayaran
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       {showForm && <NewPaymentPlanForm projects={projects} onClose={() => setShowForm(false)} />}
     </div>

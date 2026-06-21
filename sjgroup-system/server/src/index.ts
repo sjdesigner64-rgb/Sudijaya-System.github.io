@@ -17,6 +17,11 @@ import drawingRequestsRoutes from './routes/drawingRequests.routes'
 import afterSalesRoutes from './routes/afterSales.routes'
 import shipmentsRoutes from './routes/shipments.routes'
 import installationsRoutes from './routes/installations.routes'
+import leadsRoutes from './routes/leads.routes'
+import contentRequestsRoutes from './routes/contentRequests.routes'
+import mediaAssetsRoutes from './routes/mediaAssets.routes'
+import contentDataRoutes from './routes/contentData.routes'
+import tasksRoutes from './routes/tasks.routes'
 import uploadRoutes from './routes/upload.routes'
 
 const app = express()
@@ -32,16 +37,18 @@ app.use('/api/requests_drawing', drawingRequestsRoutes)
 app.use('/api/after_sales', afterSalesRoutes)
 app.use('/api/shipments', shipmentsRoutes)
 app.use('/api/installations', installationsRoutes)
+app.use('/api/leads', leadsRoutes)
+app.use('/api/content_requests', contentRequestsRoutes)
+app.use('/api/media_assets', mediaAssetsRoutes)
+app.use('/api/content_data', contentDataRoutes)
+app.use('/api/tasks', tasksRoutes)
 app.use('/api/upload', uploadRoutes)
 
 app.use('/api/customers', createCrudRouter(prisma.customer, 'customers'))
-app.use('/api/leads', createCrudRouter(prisma.lead, 'leads'))
 app.use('/api/quotations', createCrudRouter(prisma.quotation, 'quotations'))
 app.use('/api/invoices', createCrudRouter(prisma.invoice, 'invoices'))
-app.use('/api/tasks', createCrudRouter(prisma.task, 'tasks'))
 app.use('/api/requests_bom', createCrudRouter(prisma.bomRequest, 'requests_bom'))
 app.use('/api/warehouse_stock', createCrudRouter(prisma.warehouseStock, 'warehouse_stock'))
-app.use('/api/content_requests', createCrudRouter(prisma.contentRequest, 'content_requests'))
 app.use('/api/meetings', createCrudRouter(prisma.meeting, 'meetings'))
 app.use('/api/notifications', createCrudRouter(prisma.notification, 'notifications'))
 

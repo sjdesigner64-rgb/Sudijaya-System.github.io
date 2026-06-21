@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Plus, CheckCircle2, Circle, Clock, Loader2 } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Clock, Loader2, Search, Trash2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
 import type { Task, TaskStatus, TaskPriority, User } from '@/types'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { useAuthStore } from '@/store/authStore'
-import { createDoc, updateDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: 'text-gray-500',
@@ -26,30 +30,40 @@ const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   done: 'pending',
 }
 
-function NewTaskForm({ salesUsers, onClose }: { salesUsers: User[]; onClose: () => void }) {
+function TaskForm({ salesUsers, initial, onClose }: { salesUsers: User[]; initial?: Task; onClose: () => void }) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [assignedTo, setAssignedTo] = useState(salesUsers[0]?.id ?? '')
-  const [dueDate, setDueDate] = useState('')
-  const [priority, setPriority] = useState<TaskPriority>('medium')
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
+  const [assignedTo, setAssignedTo] = useState(initial?.assignedTo ?? salesUsers[0]?.id ?? '')
+  const [dueDate, setDueDate] = useState(initial ? initial.dueDate.toISOString().slice(0, 10) : '')
+  const [priority, setPriority] = useState<TaskPriority>(initial?.priority ?? 'medium')
 
   const handleSave = async () => {
     if (!title.trim() || !assignedTo || !dueDate || !user) return
     setSaving(true)
     try {
-      await createDoc('tasks', {
-        title,
-        description,
-        assignedTo,
-        assignedBy: user.id,
-        role: 'sales',
-        status: 'pending',
-        priority,
-        dueDate: new Date(dueDate),
-        reminderSent: false,
-      })
+      if (initial) {
+        await updateDocument('tasks', initial.id, {
+          title,
+          description,
+          assignedTo,
+          priority,
+          dueDate: new Date(dueDate),
+        })
+      } else {
+        await createDoc('tasks', {
+          title,
+          description,
+          assignedTo,
+          assignedBy: user.id,
+          role: 'sales',
+          status: 'pending',
+          priority,
+          dueDate: new Date(dueDate),
+          reminderSent: false,
+        })
+      }
       onClose()
     } finally {
       setSaving(false)
@@ -59,7 +73,7 @@ function NewTaskForm({ salesUsers, onClose }: { salesUsers: User[]; onClose: () 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md p-5">
-        <h3 className="font-semibold mb-4">Tambah Tugas</h3>
+        <h3 className="font-semibold mb-4">{initial ? 'Edit Tugas' : 'Tambah Tugas'}</h3>
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Judul Tugas</label>
@@ -109,7 +123,12 @@ export function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [salesUsers, setSalesUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editTask, setEditTask] = useState<Task | undefined>()
   const [filter, setFilter] = useState<TaskStatus | 'all'>('all')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const canCreate = user?.role === 'admin' || user?.role === 'super_admin'
 
   useEffect(() => {
@@ -125,10 +144,26 @@ export function TasksPage() {
   }, [])
 
   const visibleTasks = canCreate ? tasks : tasks.filter((t) => t.assignedTo === user?.id)
-  const filtered = visibleTasks.filter((t) => filter === 'all' || t.status === filter)
+  const filtered = visibleTasks.filter((t) => {
+    const matchStatus = filter === 'all' || t.status === filter
+    const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
+    return matchStatus && matchSearch
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const toggleStatus = async (task: Task) => {
     await updateDocument('tasks', task.id, { status: NEXT_STATUS[task.status] })
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('tasks', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -140,7 +175,7 @@ export function TasksPage() {
         </div>
         {canCreate && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setEditTask(undefined); setShowForm(true) }}
             disabled={salesUsers.length === 0}
             className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 disabled:opacity-50"
           >
@@ -150,12 +185,23 @@ export function TasksPage() {
         )}
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+          placeholder="Cari judul tugas..."
+          className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-border">
         {(['all', 'pending', 'in_progress', 'done'] as const).map((s) => (
           <button
             key={s}
-            onClick={() => setFilter(s)}
+            onClick={() => { setFilter(s); setPage(1) }}
             className={cn(
               'px-3 py-2 text-sm border-b-2 transition-colors -mb-px',
               filter === s ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground'
@@ -171,7 +217,7 @@ export function TasksPage() {
 
       {/* Task list */}
       <div className="space-y-2">
-        {filtered.map((task) => (
+        {paginated.map((task) => (
           <div
             key={task.id}
             className={cn(
@@ -200,6 +246,14 @@ export function TasksPage() {
                 Due: {format(task.dueDate, 'd MMM yyyy', { locale: localeId })}
               </p>
             </div>
+            {canCreate && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => { setEditTask(task); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                <button onClick={() => setDeleteTarget(task)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {filtered.length === 0 && (
@@ -207,7 +261,20 @@ export function TasksPage() {
         )}
       </div>
 
-      {showForm && <NewTaskForm salesUsers={salesUsers} onClose={() => setShowForm(false)} />}
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
+      {showForm && (
+        <TaskForm salesUsers={salesUsers} initial={editTask} onClose={() => { setShowForm(false); setEditTask(undefined) }} />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus tugas "${deleteTarget.title}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }

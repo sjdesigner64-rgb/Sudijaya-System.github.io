@@ -37,13 +37,28 @@ router.get('/', async (req, res) => {
     }
   }
 
-  const docs = await prisma.drawingRequest.findMany({ where, orderBy })
+  let docs = await prisma.drawingRequest.findMany({ where, orderBy })
+
+  // PIC-based access: sales hanya lihat request yang dia buat sendiri,
+  // fabrikasi hanya lihat request yang dirinya ada di assignedTo (PIC).
+  // super_admin tetap lihat semua.
+  if (req.user!.role === 'sales') {
+    docs = docs.filter((d) => d.requestedBy === req.user!.id)
+  } else if (req.user!.role === 'fabrikasi') {
+    docs = docs.filter((d) => Array.isArray(d.assignedTo) && (d.assignedTo as unknown[]).includes(req.user!.id))
+  }
+
   res.json(docs)
 })
 
 router.get('/:id', async (req, res) => {
   const doc = await prisma.drawingRequest.findUnique({ where: { id: req.params.id } })
   if (!doc) return res.status(404).json({ error: 'Not found' })
+  const role = req.user!.role
+  const isOwner = doc.requestedBy === req.user!.id
+  const isAssigned = Array.isArray(doc.assignedTo) && (doc.assignedTo as unknown[]).includes(req.user!.id)
+  if (role === 'sales' && !isOwner) return res.status(403).json({ error: 'Forbidden' })
+  if (role === 'fabrikasi' && !isAssigned) return res.status(403).json({ error: 'Forbidden' })
   res.json(doc)
 })
 

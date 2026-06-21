@@ -17,6 +17,8 @@ import { ShipmentPage } from '@/pages/fabrikasi/ShipmentPage'
 import { InstallationPage } from '@/pages/fabrikasi/InstallationPage'
 import { WarehousePage } from '@/pages/warehouse/WarehousePage'
 import { ContentPage } from '@/pages/media/ContentPage'
+import { AssetMediaPage } from '@/pages/media/AssetMediaPage'
+import { ContentDataPage } from '@/pages/media/ContentDataPage'
 import { TasksPage } from '@/pages/shared/TasksPage'
 import { MeetingsPage } from '@/pages/shared/MeetingsPage'
 import { InboxPanel } from '@/components/inbox/InboxPanel'
@@ -68,7 +70,7 @@ function AppWithAuth() {
             </ProtectedRoute>
           } />
           <Route path="pipeline" element={
-            <ProtectedRoute allowedRoles={['super_admin', 'sales']}>
+            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales']}>
               <PipelinePage />
             </ProtectedRoute>
           } />
@@ -112,6 +114,16 @@ function AppWithAuth() {
           <Route path="content" element={
             <ProtectedRoute allowedRoles={['super_admin', 'sales', 'media']}>
               <ContentPage />
+            </ProtectedRoute>
+          } />
+          <Route path="media-assets" element={
+            <ProtectedRoute allowedRoles={['super_admin', 'media']}>
+              <AssetMediaPage />
+            </ProtectedRoute>
+          } />
+          <Route path="content-data" element={
+            <ProtectedRoute allowedRoles={['super_admin', 'media']}>
+              <ContentDataPage />
             </ProtectedRoute>
           } />
           <Route path="after-sales" element={

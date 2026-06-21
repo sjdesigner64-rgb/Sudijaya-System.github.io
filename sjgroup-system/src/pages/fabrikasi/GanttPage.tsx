@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Loader2, Trash2, ArrowLeft } from 'lucide-react'
+import { Plus, Loader2, Trash2, ArrowLeft, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -8,6 +8,10 @@ import { toDate } from '@/utils/firestore'
 import type { ProductionGantt, GanttTask, GanttTaskName, GanttTaskStatus, Project, User } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const TASK_SEQUENCE: GanttTaskName[] = [
   'drawing', 'purchase_material', 'cutting_laser', 'vendor',
@@ -144,7 +148,12 @@ export function GanttPage() {
   const [showForm, setShowForm] = useState(false)
   const [editGantt, setEditGantt] = useState<ProductionGantt | undefined>()
   const [salesUsers, setSalesUsers] = useState<User[]>([])
-  const canEdit = user?.role === 'fabrikasi' || user?.role === 'super_admin'
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<ProductionGantt['status'] | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<ProductionGantt | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const canEdit = user?.role === 'fabrikasi' || user?.role === 'super_admin' || user?.role === 'admin'
 
   useEffect(() => {
     const unsubG = subscribeToCollection('production_gantt', [], (docs) => {
@@ -214,10 +223,23 @@ export function GanttPage() {
     await updateDocument(`production_gantt/${selectedId}/tasks`, taskId, { notes: newNotes })
   }
 
-  const handleDelete = async (gantt: ProductionGantt) => {
-    if (!confirm(`Hapus Gantt Chart "${gantt.projectName}"?`)) return
-    await deleteDocument('production_gantt', gantt.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('production_gantt', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const filteredGantts = gantts.filter((g) => {
+    const matchSearch = g.projectName.toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || g.status === filterStatus
+    return matchSearch && matchStatus
+  })
+  const paginatedGantts = filteredGantts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   // ── Detail view (Gantt Chart) ──────────────────────────────
   if (selected) {
@@ -256,6 +278,28 @@ export function GanttPage() {
         )}
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari nama project..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value as ProductionGantt['status'] | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Status</option>
+          <option value="active">Aktif</option>
+          <option value="completed">Selesai</option>
+        </select>
+      </div>
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -269,7 +313,7 @@ export function GanttPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {gantts.map((g) => (
+              {paginatedGantts.map((g) => (
                 <tr key={g.id} className="hover:bg-muted/20">
                   <td className="p-3 font-medium">{g.projectName}</td>
                   <td className="p-3 text-muted-foreground text-xs">{salesUsers.find((u) => u.id === g.salesPic)?.name ?? '-'}</td>
@@ -281,7 +325,7 @@ export function GanttPage() {
                       {canEdit && (
                         <>
                           <button onClick={() => setEditGantt(g)} className="text-xs text-primary hover:underline">Edit</button>
-                          <button onClick={() => handleDelete(g)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                          <button onClick={() => setDeleteTarget(g)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </>
@@ -290,7 +334,7 @@ export function GanttPage() {
                   </td>
                 </tr>
               ))}
-              {gantts.length === 0 && (
+              {filteredGantts.length === 0 && (
                 <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Belum ada project fabrikasi</td></tr>
               )}
             </tbody>
@@ -298,8 +342,19 @@ export function GanttPage() {
         </div>
       </div>
 
+      <Pagination page={page} totalItems={filteredGantts.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
       {showForm && <NewGanttForm projects={projects} existingIds={gantts.map((g) => g.projectId)} onClose={() => setShowForm(false)} />}
       {editGantt && <EditGanttForm gantt={editGantt} onClose={() => setEditGantt(undefined)} />}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus Gantt Chart "${deleteTarget.projectName}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }

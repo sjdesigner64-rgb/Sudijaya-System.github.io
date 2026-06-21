@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Loader2, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, Loader2, ExternalLink, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
 import type { AfterSales, Customer, User, ComplaintType, TicketPriority, TicketStatus, WarrantyStatus } from '@/types'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const COMPLAINT_LABELS: Record<ComplaintType, string> = {
   kerusakan: 'Kerusakan',
@@ -207,6 +211,11 @@ export function AfterSalesPage() {
   const [fabrikasiUsers, setFabrikasiUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editTicket, setEditTicket] = useState<AfterSales | undefined>()
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<TicketStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<AfterSales | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubA = subscribeToCollection('after_sales', [], (docs) => {
@@ -228,10 +237,24 @@ export function AfterSalesPage() {
 
   const userName = (id?: string, list?: User[]) => list?.find((u) => u.id === id)?.name ?? '-'
 
-  const handleDelete = async (ticket: AfterSales) => {
-    if (!confirm(`Hapus tiket "${ticket.machineName}" (${ticket.customerName})?`)) return
-    await deleteDocument('after_sales', ticket.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('after_sales', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const filtered = tickets.filter((t) => {
+    const q = search.toLowerCase()
+    const matchSearch = t.machineName.toLowerCase().includes(q) || (t.customerName ?? '').toLowerCase().includes(q)
+    const matchStatus = filterStatus === 'all' || t.ticketStatus === filterStatus
+    return matchSearch && matchStatus
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -248,6 +271,31 @@ export function AfterSalesPage() {
           <Plus className="h-4 w-4" />
           Tambah Tiket
         </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari nama mesin atau customer..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value as TicketStatus | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Status</option>
+          <option value="baru">Baru</option>
+          <option value="diproses">Diproses</option>
+          <option value="menunggu_sparepart">Menunggu Sparepart</option>
+          <option value="selesai">Selesai</option>
+          <option value="cancel">Cancel</option>
+        </select>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -270,7 +318,7 @@ export function AfterSalesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {tickets.map((t) => (
+              {paginated.map((t) => (
                 <tr key={t.id} className="hover:bg-muted/20">
                   <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{format(t.reportDate, 'd MMM yyyy', { locale: localeId })}</td>
                   <td className="p-3 font-medium whitespace-nowrap">{t.customerName}</td>
@@ -292,20 +340,22 @@ export function AfterSalesPage() {
                   <td className="p-3">
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       <button onClick={() => { setEditTicket(t); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
-                      <button onClick={() => handleDelete(t)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                      <button onClick={() => setDeleteTarget(t)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {tickets.length === 0 && (
+              {filtered.length === 0 && (
                 <tr><td colSpan={12} className="p-6 text-center text-muted-foreground">Belum ada tiket after-sales</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       {showForm && (
         <TicketForm
@@ -314,6 +364,15 @@ export function AfterSalesPage() {
           fabrikasiUsers={fabrikasiUsers}
           initial={editTicket}
           onClose={() => { setShowForm(false); setEditTicket(undefined) }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus tiket "${deleteTarget.machineName}" (${deleteTarget.customerName})?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

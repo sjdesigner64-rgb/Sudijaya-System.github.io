@@ -7,17 +7,21 @@ const ALERT_DAYS_BEFORE = [30, 7, 1]
 
 // sendDailyReminder — 09:00, 13:00, 17:00 WIB (Asia/Jakarta = UTC+7, cron runs in server local time/UTC)
 const sendDailyReminder = async () => {
-  const pendingTasks = await prisma.task.findMany({ where: { status: { not: 'done' } } })
-  const pendingByUser = new Map<string, number>()
+  const pendingTasks = await prisma.task.findMany({ where: { status: { not: 'done' } }, orderBy: { dueDate: 'asc' } })
+  const titlesByUser = new Map<string, string[]>()
   for (const task of pendingTasks) {
-    pendingByUser.set(task.assignedTo, (pendingByUser.get(task.assignedTo) ?? 0) + 1)
+    const list = titlesByUser.get(task.assignedTo) ?? []
+    list.push(task.title)
+    titlesByUser.set(task.assignedTo, list)
   }
-  for (const [userId, count] of pendingByUser.entries()) {
+  for (const [userId, titles] of titlesByUser.entries()) {
+    const preview = titles.slice(0, 3).join(', ')
+    const sisa = titles.length > 3 ? `, dan ${titles.length - 3} tugas lainnya` : ''
     await notifyUser({
       recipientId: userId,
       type: 'reminder',
       title: 'Pengingat Tugas',
-      message: `Anda memiliki ${count} tugas yang belum selesai. Segera tindak lanjuti.`,
+      message: `Anda memiliki ${titles.length} tugas yang belum selesai: ${preview}${sisa}. Segera tindak lanjuti.`,
       relatedId: userId,
       relatedCollection: 'tasks',
     })

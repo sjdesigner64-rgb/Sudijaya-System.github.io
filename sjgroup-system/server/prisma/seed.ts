@@ -33,7 +33,11 @@ async function main() {
   await prisma.notification.deleteMany()
   await prisma.afterSales.deleteMany()
   await prisma.meeting.deleteMany()
+  await prisma.contentData.deleteMany()
+  await prisma.mediaAsset.deleteMany()
   await prisma.contentRequest.deleteMany()
+  await prisma.installation.deleteMany()
+  await prisma.shipment.deleteMany()
   await prisma.warehouseStock.deleteMany()
   await prisma.ganttTask.deleteMany()
   await prisma.productionGantt.deleteMany()
@@ -194,12 +198,108 @@ async function main() {
     ],
   })
 
+  // ── Shipment (Pengiriman) ──────────────────────────────────────
+  await prisma.shipment.create({
+    data: {
+      projectId: projectZenyer.id, projectName: projectZenyer.name, sku: 'ZNY-CLP-001', quantity: 1, weight: 620,
+      dimensions: { length: 180, width: 120, height: 160, unit: 'cm' }, condition: 'baru',
+      address: 'Jl. Industri Raya No. 45, Karawang, Jawa Barat', picPengiriman: fabrikasi.id,
+      packingNotes: 'Packing kayu + bubble wrap, pallet standar ekspedisi.', createdBy: fabrikasi.id,
+    },
+  })
+  await prisma.shipment.create({
+    data: {
+      projectId: projectPmx.id, projectName: projectPmx.name, sku: 'PMX-300-001', quantity: 1, weight: 850,
+      dimensions: { length: 200, width: 150, height: 180, unit: 'cm' }, condition: 'baru',
+      address: 'Jl. Raya Bekasi KM 27, Bekasi, Jawa Barat', picPengiriman: fabrikasi.id,
+      packingNotes: 'Menunggu jadwal QC FAT selesai sebelum packing.', createdBy: fabrikasi.id,
+    },
+  })
+
+  // ── Installation (Instalasi) ───────────────────────────────────
+  await prisma.installation.create({
+    data: {
+      projectId: projectZenyer.id, projectName: projectZenyer.name, picInstalasi: fabrikasi.id,
+      installationDate: new Date('2026-06-02'), estimatedDuration: '2 hari', deadline: new Date('2026-06-03'),
+      status: 'selesai', createdBy: fabrikasi.id,
+    },
+  })
+  await prisma.installation.create({
+    data: {
+      projectId: projectPmx.id, projectName: projectPmx.name, picInstalasi: fabrikasi.id,
+      installationDate: new Date('2026-07-16'), estimatedDuration: '3 hari', deadline: new Date('2026-07-18'),
+      status: 'dijadwalkan', createdBy: fabrikasi.id,
+    },
+  })
+
   // ── Content Requests ─────────────────────────────────────────
   await prisma.contentRequest.create({
-    data: { requestedBy: sales1.id, assignedTo: media.id, productName: 'Mesin Sortir PMX-300', description: 'Foto dan video demo mesin, angle 3 sisi.', status: 'in_progress', deadline: new Date('2026-06-25') },
+    data: {
+      requestedBy: sales1.id, assignedTo: media.id, productName: 'Mesin Sortir PMX-300', contentType: 'video',
+      description: 'Foto dan video demo mesin, angle 3 sisi.', priority: 'high', attachments: [],
+      status: 'diproses', deadline: new Date('2026-06-25'),
+    },
   })
   await prisma.contentRequest.create({
-    data: { requestedBy: sales2.id, productName: 'VNT Destoner Basic', description: 'Konten untuk Instagram Reels.', status: 'pending', deadline: new Date('2026-06-30') },
+    data: {
+      requestedBy: sales2.id, productName: 'VNT Destoner Basic', contentType: 'reels',
+      description: 'Konten untuk Instagram Reels, durasi 30 detik.', priority: 'medium', attachments: [],
+      status: 'baru', deadline: new Date('2026-06-30'),
+    },
+  })
+  await prisma.contentRequest.create({
+    data: {
+      requestedBy: sales2.id, assignedTo: media.id, productName: 'Zenyer Cleaner Pro', contentType: 'foto',
+      description: 'Foto produk untuk katalog dan website.', priority: 'urgent', attachments: [],
+      status: 'revisi', revisionNotes: 'Foto kurang terang, tolong reshoot dengan pencahayaan lebih baik.',
+      deadline: new Date('2026-06-18'),
+    },
+  })
+
+  // ── Media Assets ───────────────────────────────────────────────
+  await prisma.mediaAsset.createMany({
+    data: [
+      { category: 'logo_brand', name: 'Logo Sudijaya Group (PNG transparan)', fileUrl: 'https://example.com/assets/logo-sudijaya-group.png', description: 'Logo utama, background transparan.', uploadedBy: media.id },
+      { category: 'foto_produk', name: 'Foto Mesin Sortir PMX-300', fileUrl: 'https://example.com/assets/foto-pmx-300.jpg', description: 'Foto studio, 4 angle.', uploadedBy: media.id },
+      { category: 'video_produk', name: 'Video Demo VNT Destoner Basic', fileUrl: 'https://example.com/assets/video-vnt-destoner.mp4', description: 'Mesin berjalan, durasi 2 menit.', uploadedBy: media.id },
+      { category: 'template_desain', name: 'Template Feed Instagram', fileUrl: 'https://example.com/assets/template-feed-ig.psd', description: 'Template 1:1, brand color Sudijaya.', uploadedBy: media.id },
+      { category: 'font_warna_brand', name: 'Brand Guideline Sudijaya Group', fileUrl: 'https://example.com/assets/brand-guideline.pdf', description: 'Font, palet warna, dan logo usage.', uploadedBy: media.id },
+      { category: 'voice_over', name: 'VO Promosi Produk Q3 2026', fileUrl: 'https://example.com/assets/vo-promosi-q3.mp3', description: 'Narasi Bahasa Indonesia, durasi 45 detik.', uploadedBy: media.id },
+      { category: 'musik_sfx', name: 'Background Music Corporate', fileUrl: 'https://example.com/assets/bgm-corporate.mp3', description: 'Royalty-free, cocok utk company profile.', uploadedBy: media.id },
+      { category: 'broll', name: 'B-roll Workshop Fabrikasi', fileUrl: 'https://example.com/assets/broll-workshop.mp4', description: 'Suasana proses fabrikasi di workshop.', uploadedBy: media.id },
+    ],
+  })
+
+  // ── Content Data ─────────────────────────────────────────────
+  await prisma.contentData.create({
+    data: {
+      title: 'Promo Mesin Sortir PMX-300', category: 'promo', platform: ['instagram', 'facebook'], format: '1:1',
+      caption: 'Tingkatkan efisiensi sortir hasil panen Anda dengan PMX-300! Hubungi kami untuk penawaran terbaik.',
+      hashtag: '#sudijayagroup #mesinsortir #pmx300', driveLink: 'https://drive.google.com/drive/folders/dummy-promo-pmx300',
+      productionStatus: 'final', uploadDate: new Date('2026-06-12'), pic: media.id, createdBy: media.id, files: [],
+    },
+  })
+  await prisma.contentData.create({
+    data: {
+      title: 'Tutorial Pemakaian VNT Destoner Basic', category: 'edukasi', platform: ['youtube'], format: '16:9',
+      caption: 'Panduan lengkap mengoperasikan VNT Destoner Basic untuk hasil panen lebih bersih.',
+      voiceOverScript: 'Halo, di video kali ini kami akan menunjukkan cara mengoperasikan VNT Destoner Basic...',
+      productionStatus: 'editing', pic: media.id, createdBy: media.id, files: [],
+    },
+  })
+  await prisma.contentData.create({
+    data: {
+      title: 'Testimoni PT Karya Utama', category: 'testimoni', platform: ['instagram', 'tiktok'], format: '9:16',
+      caption: 'Dengar langsung pengalaman PT Karya Utama menggunakan Zenyer Cleaner Pro.',
+      hashtag: '#testimoni #zenyercleanerpro', productionStatus: 'review', pic: media.id, createdBy: media.id, files: [],
+    },
+  })
+  await prisma.contentData.create({
+    data: {
+      title: 'Company Profile Sudijaya Group 2026', category: 'company_profile', platform: ['website', 'youtube'], format: '16:9',
+      caption: 'Profil perusahaan Sudijaya Group — mesin fabrikasi berkualitas sejak berdiri.',
+      productionStatus: 'draft', pic: media.id, createdBy: media.id, files: [],
+    },
   })
 
   // ── Meetings ─────────────────────────────────────────────────
@@ -230,7 +330,7 @@ async function main() {
     ],
   })
 
-  console.log('Dummy data transaksional berhasil dibuat: 4 customers, 5 leads, 4 projects, 2 quotations, 2 invoices, 3 tasks, 2 drawing requests, 2 BOM requests, 1 gantt (8 tasks), 4 stok gudang, 2 content requests, 2 meetings, 1 after-sales, 2 notifikasi.')
+  console.log('Dummy data transaksional berhasil dibuat: 4 customers, 5 leads, 4 projects, 2 quotations, 2 invoices, 3 tasks, 2 drawing requests, 2 BOM requests, 1 gantt (8 tasks), 4 stok gudang, 2 shipment, 2 installation, 3 content requests, 8 media assets, 4 content data, 2 meetings, 1 after-sales, 2 notifikasi.')
 }
 
 main()

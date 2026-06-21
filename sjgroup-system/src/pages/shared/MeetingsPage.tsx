@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Calendar, MapPin, Users, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Loader2, Trash2, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { Meeting, MeetingStatus, User } from '@/types'
 import { format } from 'date-fns'
@@ -7,6 +7,10 @@ import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const STATUS_COLORS: Record<MeetingStatus, string> = {
   scheduled: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
@@ -131,6 +135,11 @@ export function MeetingsPage() {
   const [users, setUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editMeeting, setEditMeeting] = useState<Meeting | undefined>()
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<MeetingStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<Meeting | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const canManage = user?.role === 'admin' || user?.role === 'super_admin'
 
   useEffect(() => {
@@ -148,10 +157,23 @@ export function MeetingsPage() {
   const participantNames = (ids: string[]) =>
     ids.map((id) => users.find((u) => u.id === id)?.name ?? id).join(', ')
 
-  const handleDelete = async (meeting: Meeting) => {
-    if (!confirm(`Hapus jadwal meeting "${meeting.title}"?`)) return
-    await deleteDocument('meetings', meeting.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('meetings', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const filtered = meetings.filter((m) => {
+    const matchSearch = m.title.toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || m.status === filterStatus
+    return matchSearch && matchStatus
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -171,8 +193,31 @@ export function MeetingsPage() {
         )}
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari judul meeting..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value as MeetingStatus | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Status</option>
+          <option value="scheduled">Terjadwal</option>
+          <option value="done">Selesai</option>
+          <option value="cancelled">Dibatalkan</option>
+        </select>
+      </div>
+
       <div className="space-y-3">
-        {meetings.map((meeting) => (
+        {paginated.map((meeting) => (
           <div key={meeting.id} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-start justify-between mb-2">
               <h3 className="font-medium">{meeting.title}</h3>
@@ -198,22 +243,33 @@ export function MeetingsPage() {
             {canManage && (
               <div className="flex items-center gap-3 border-t border-border pt-2">
                 <button onClick={() => { setEditMeeting(meeting); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
-                <button onClick={() => handleDelete(meeting)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                <button onClick={() => setDeleteTarget(meeting)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
           </div>
         ))}
-        {meetings.length === 0 && (
+        {filtered.length === 0 && (
           <div className="py-12 text-center text-muted-foreground text-sm bg-card border border-border rounded-xl">
             Belum ada jadwal meeting
           </div>
         )}
       </div>
 
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
       {showForm && (
         <MeetingForm users={users} initial={editMeeting} onClose={() => { setShowForm(false); setEditMeeting(undefined) }} />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus jadwal meeting "${deleteTarget.title}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   )

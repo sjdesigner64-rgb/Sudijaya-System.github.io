@@ -297,15 +297,69 @@ export interface Installation {
 }
 
 // ─── Content Request ──────────────────────────────────────────────────────────
+export type ContentMediaType = 'foto' | 'video' | 'desain' | 'reels' | 'katalog' | 'voice_over'
+export type ContentPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type ContentRequestStatus = 'baru' | 'diproses' | 'revisi' | 'selesai'
+
 export interface ContentRequest {
   id: string
   requestedBy: string
   assignedTo?: string
   productName: string
+  contentType: ContentMediaType
   description: string
-  status: TaskStatus
+  priority: ContentPriority
+  attachments: Attachment[]
+  status: ContentRequestStatus
+  revisionNotes?: string
   storageLink?: string
   deadline: Date
+  createdAt: Date
+}
+
+// ─── Media Asset ──────────────────────────────────────────────────────────────
+export type MediaAssetCategory =
+  | 'logo_brand'
+  | 'foto_produk'
+  | 'video_produk'
+  | 'template_desain'
+  | 'font_warna_brand'
+  | 'voice_over'
+  | 'musik_sfx'
+  | 'broll'
+
+export interface MediaAsset {
+  id: string
+  category: MediaAssetCategory
+  name: string
+  fileUrl: string
+  description?: string
+  uploadedBy: string
+  createdAt: Date
+}
+
+// ─── Content Data ─────────────────────────────────────────────────────────────
+export type ContentCategory = 'produk' | 'edukasi' | 'testimoni' | 'promo' | 'event' | 'company_profile'
+export type ContentPlatform = 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'website'
+export type ContentFormat = '9:16' | '1:1' | '16:9' | 'a4' | 'banner'
+export type ContentProductionStatus = 'draft' | 'editing' | 'review' | 'revisi' | 'approved' | 'final'
+
+export interface ContentData {
+  id: string
+  seq: number
+  title: string
+  category: ContentCategory
+  platform: ContentPlatform[]
+  format: ContentFormat
+  caption?: string
+  voiceOverScript?: string
+  hashtag?: string
+  files: Attachment[]
+  driveLink?: string
+  productionStatus: ContentProductionStatus
+  uploadDate?: Date
+  pic: string
+  createdBy: string
   createdAt: Date
 }
 

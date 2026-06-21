@@ -5,6 +5,7 @@ import type { User, UserRole } from '@/types'
 import { getRoleLabel } from '@/store/authStore'
 import { subscribeToCollection, orderBy } from '@/services/firestore.service'
 import { createUserAccount, deleteUserAccount, updateUserProfile } from '@/services/user.service'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 const ROLE_COLORS: Record<UserRole, string> = {
   super_admin: 'bg-purple-100 dark:bg-purple-900 text-purple-700',
@@ -27,6 +28,8 @@ export function UsersPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('sales')
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubscribe = subscribeToCollection('users', [orderBy('name', 'asc')], (docs) => {
@@ -71,12 +74,16 @@ export function UsersPage() {
     }
   }
 
-  const handleDelete = async (u: User) => {
-    if (!confirm(`Hapus user "${u.name}"? Tindakan ini tidak dapat dibatalkan.`)) return
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await deleteUserAccount(u.id)
+      await deleteUserAccount(deleteTarget.id)
+      setDeleteTarget(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Gagal menghapus user')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -141,7 +148,7 @@ export function UsersPage() {
                     <button onClick={() => openEditForm(u)} className="p-1 text-muted-foreground hover:text-primary" title="Edit">
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => handleDelete(u)} className="p-1 text-muted-foreground hover:text-destructive" title="Hapus">
+                    <button onClick={() => setDeleteTarget(u)} className="p-1 text-muted-foreground hover:text-destructive" title="Hapus">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -195,6 +202,15 @@ export function UsersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus user "${deleteTarget.name}"? Tindakan ini tidak dapat dibatalkan.`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   )

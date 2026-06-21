@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Loader2, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { Shipment, ItemCondition, Project, User } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const CONDITION_LABELS: Record<ItemCondition, string> = {
   baru: 'Baru',
@@ -152,6 +156,11 @@ export function ShipmentPage() {
   const [fabrikasiUsers, setFabrikasiUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editShipment, setEditShipment] = useState<Shipment | undefined>()
+  const [search, setSearch] = useState('')
+  const [filterCondition, setFilterCondition] = useState<ItemCondition | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<Shipment | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubS = subscribeToCollection('shipments', [], (docs) => setShipments(docs as unknown as Shipment[]))
@@ -162,10 +171,24 @@ export function ShipmentPage() {
 
   const picName = (id: string) => fabrikasiUsers.find((u) => u.id === id)?.name ?? '-'
 
-  const handleDelete = async (s: Shipment) => {
-    if (!confirm(`Hapus pengiriman "${s.sku}" untuk project "${s.projectName}"?`)) return
-    await deleteDocument('shipments', s.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('shipments', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const filtered = shipments.filter((s) => {
+    const q = search.toLowerCase()
+    const matchSearch = (s.projectName ?? '').toLowerCase().includes(q) || s.sku.toLowerCase().includes(q)
+    const matchCondition = filterCondition === 'all' || s.condition === filterCondition
+    return matchSearch && matchCondition
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -182,6 +205,27 @@ export function ShipmentPage() {
           <Plus className="h-4 w-4" />
           Tambah Pengiriman
         </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari nama project atau SKU..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterCondition}
+          onChange={(e) => { setFilterCondition(e.target.value as ItemCondition | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Kondisi</option>
+          {(Object.entries(CONDITION_LABELS) as [ItemCondition, string][]).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+        </select>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -202,7 +246,7 @@ export function ShipmentPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {shipments.map((s) => (
+              {paginated.map((s) => (
                 <tr key={s.id} className="hover:bg-muted/20">
                   <td className="p-3 font-medium whitespace-nowrap">{s.projectName}</td>
                   <td className="p-3 text-muted-foreground whitespace-nowrap">{s.sku}</td>
@@ -216,14 +260,14 @@ export function ShipmentPage() {
                   <td className="p-3">
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       <button onClick={() => { setEditShipment(s); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
-                      <button onClick={() => handleDelete(s)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                      <button onClick={() => setDeleteTarget(s)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {shipments.length === 0 && (
+              {filtered.length === 0 && (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Belum ada data pengiriman</td></tr>
               )}
             </tbody>
@@ -231,12 +275,23 @@ export function ShipmentPage() {
         </div>
       </div>
 
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
       {showForm && (
         <ShipmentForm
           projects={projects}
           fabrikasiUsers={fabrikasiUsers}
           initial={editShipment}
           onClose={() => { setShowForm(false); setEditShipment(undefined) }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus pengiriman "${deleteTarget.sku}" untuk project "${deleteTarget.projectName}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

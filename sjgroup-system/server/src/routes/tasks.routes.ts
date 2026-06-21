@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { prisma } from '../lib/prisma'
-import { requireAuth, requireRole } from '../middleware/auth'
+import { requireAuth } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
-import { advanceProjectStage } from '../lib/pipelineStage'
+import { notifyUser } from '../lib/notify'
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
 const coerceDates = (value: unknown): unknown => {
@@ -23,7 +23,6 @@ const coerceBody = (body: Record<string, unknown>) => {
 
 const router = Router()
 router.use(requireAuth)
-router.use(requireRole(['fabrikasi', 'super_admin']))
 
 router.get('/', async (req, res) => {
   const where: Record<string, string> = {}
@@ -38,46 +37,52 @@ router.get('/', async (req, res) => {
     }
   }
 
-  // PIC-based access: fabrikasi hanya lihat instalasi yang picInstalasi-nya
-  // dirinya. super_admin tetap lihat semua.
-  if (req.user!.role === 'fabrikasi') {
-    where.picInstalasi = req.user!.id
-  }
-
-  const docs = await prisma.installation.findMany({ where, orderBy })
+  const docs = await prisma.task.findMany({ where, orderBy })
   res.json(docs)
 })
 
 router.get('/:id', async (req, res) => {
-  const doc = await prisma.installation.findUnique({ where: { id: req.params.id } })
+  const doc = await prisma.task.findUnique({ where: { id: req.params.id } })
   if (!doc) return res.status(404).json({ error: 'Not found' })
-  if (req.user!.role === 'fabrikasi' && doc.picInstalasi !== req.user!.id) {
-    return res.status(403).json({ error: 'Forbidden' })
-  }
   res.json(doc)
 })
 
 router.post('/', async (req, res) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await prisma.installation.create({ data: coerceBody(req.body) as any })
-  emitChange('installations')
-  if (doc.projectId) await advanceProjectStage(doc.projectId, 'instalasi')
+  const doc = await prisma.task.create({ data: coerceBody(req.body) as any })
+  emitChange('tasks')
+
+  // Kirim notifikasi ke Inbox PIC yang ditugaskan, sebutkan judul & deskripsi
+  // tugasnya supaya langsung jelas tanpa perlu buka halaman Daily Task dulu.
+  if (doc.assignedTo) {
+    const deadline = doc.dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    await notifyUser({
+      recipientId: doc.assignedTo,
+      type: 'reminder',
+      title: `Tugas Baru: ${doc.title}`,
+      message: doc.description
+        ? `${doc.description} (Deadline: ${deadline})`
+        : `Anda mendapat tugas baru, deadline ${deadline}.`,
+      relatedId: doc.id,
+      relatedCollection: 'tasks',
+    })
+  }
+
   res.json(doc)
 })
 
 router.put('/:id', async (req, res) => {
-  const doc = await prisma.installation.update({
+  const doc = await prisma.task.update({
     where: { id: req.params.id },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: coerceBody(req.body) as any,
+    data: coerceBody(req.body),
   })
-  emitChange('installations')
+  emitChange('tasks')
   res.json(doc)
 })
 
 router.delete('/:id', async (req, res) => {
-  await prisma.installation.delete({ where: { id: req.params.id } })
-  emitChange('installations')
+  await prisma.task.delete({ where: { id: req.params.id } })
+  emitChange('tasks')
   res.json({ success: true })
 })
 

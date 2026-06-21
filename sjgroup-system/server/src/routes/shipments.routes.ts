@@ -38,6 +38,12 @@ router.get('/', async (req, res) => {
     }
   }
 
+  // PIC-based access: fabrikasi hanya lihat pengiriman yang picPengiriman-nya
+  // dirinya. super_admin tetap lihat semua.
+  if (req.user!.role === 'fabrikasi') {
+    where.picPengiriman = req.user!.id
+  }
+
   const docs = await prisma.shipment.findMany({ where, orderBy })
   res.json(docs)
 })
@@ -45,6 +51,9 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const doc = await prisma.shipment.findUnique({ where: { id: req.params.id } })
   if (!doc) return res.status(404).json({ error: 'Not found' })
+  if (req.user!.role === 'fabrikasi' && doc.picPengiriman !== req.user!.id) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
   res.json(doc)
 })
 

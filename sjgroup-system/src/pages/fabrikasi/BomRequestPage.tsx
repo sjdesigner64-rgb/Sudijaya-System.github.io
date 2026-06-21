@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Upload, FileText, Loader2 } from 'lucide-react'
+import { Plus, Upload, FileText, Loader2, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { BomRequest, BomStatus, Project } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, subscribeToCollection } from '@/services/firestore.service'
 import { uploadFile, buildPath } from '@/services/storage.service'
+import { Pagination } from '@/components/common/Pagination'
+
+const PAGE_SIZE = 10
 
 const STATUS_LABELS: Record<BomStatus, string> = {
   pending_admin: 'Pending Admin',
@@ -91,6 +94,9 @@ export function BomRequestPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [showForm, setShowForm] = useState(false)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<BomStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isSales = user?.role === 'sales'
   const isFabrikasi = user?.role === 'fabrikasi'
@@ -121,6 +127,15 @@ export function BomRequestPage() {
       setUploadingId(null)
     }
   }
+
+  const filtered = boms.filter((bom) => {
+    const project = projects.find((p) => p.id === bom.projectId)
+    const q = search.toLowerCase()
+    const matchSearch = (project?.name ?? '').toLowerCase().includes(q) || (project?.customerName ?? '').toLowerCase().includes(q)
+    const matchStatus = filterStatus === 'all' || bom.status === filterStatus
+    return matchSearch && matchStatus
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -157,7 +172,30 @@ export function BomRequestPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {boms.map((bom) => {
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                placeholder="Cari nama project atau customer..."
+                className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => { setFilterStatus(e.target.value as BomStatus | 'all'); setPage(1) }}
+              className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">Semua Status</option>
+              <option value="pending_admin">Pending Admin</option>
+              <option value="pending_fabrikasi">Diproses Fabrikasi</option>
+              <option value="done">Selesai</option>
+            </select>
+          </div>
+
+          {paginated.map((bom) => {
             const project = projects.find((p) => p.id === bom.projectId)
             return (
               <div key={bom.id} className="bg-card border border-border rounded-xl p-4">
@@ -207,11 +245,13 @@ export function BomRequestPage() {
               </div>
             )
           })}
-          {boms.length === 0 && (
+          {filtered.length === 0 && (
             <div className="py-12 text-center text-muted-foreground text-sm bg-card border border-border rounded-xl">
               Belum ada request BOM
             </div>
           )}
+
+          <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </div>
       )}
 

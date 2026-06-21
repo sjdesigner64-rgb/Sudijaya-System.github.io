@@ -1,8 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../lib/prisma'
-import { requireAuth, requireRole } from '../middleware/auth'
+import { requireAuth } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
-import { advanceProjectStage } from '../lib/pipelineStage'
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
 const coerceDates = (value: unknown): unknown => {
@@ -21,9 +20,10 @@ const coerceBody = (body: Record<string, unknown>) => {
   return out
 }
 
+const isAdmin = (role: string) => role === 'admin' || role === 'super_admin'
+
 const router = Router()
 router.use(requireAuth)
-router.use(requireRole(['fabrikasi', 'super_admin']))
 
 router.get('/', async (req, res) => {
   const where: Record<string, string> = {}
@@ -38,20 +38,20 @@ router.get('/', async (req, res) => {
     }
   }
 
-  // PIC-based access: fabrikasi hanya lihat instalasi yang picInstalasi-nya
-  // dirinya. super_admin tetap lihat semua.
-  if (req.user!.role === 'fabrikasi') {
-    where.picInstalasi = req.user!.id
+  // PIC-based access: sales hanya melihat lead yang assignedSales-nya dirinya.
+  // Admin & super_admin melihat semua lead.
+  if (!isAdmin(req.user!.role)) {
+    where.assignedSales = req.user!.id
   }
 
-  const docs = await prisma.installation.findMany({ where, orderBy })
+  const docs = await prisma.lead.findMany({ where, orderBy })
   res.json(docs)
 })
 
 router.get('/:id', async (req, res) => {
-  const doc = await prisma.installation.findUnique({ where: { id: req.params.id } })
+  const doc = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!doc) return res.status(404).json({ error: 'Not found' })
-  if (req.user!.role === 'fabrikasi' && doc.picInstalasi !== req.user!.id) {
+  if (!isAdmin(req.user!.role) && doc.assignedSales !== req.user!.id) {
     return res.status(403).json({ error: 'Forbidden' })
   }
   res.json(doc)
@@ -59,25 +59,24 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await prisma.installation.create({ data: coerceBody(req.body) as any })
-  emitChange('installations')
-  if (doc.projectId) await advanceProjectStage(doc.projectId, 'instalasi')
+  const doc = await prisma.lead.create({ data: coerceBody(req.body) as any })
+  emitChange('leads')
   res.json(doc)
 })
 
 router.put('/:id', async (req, res) => {
-  const doc = await prisma.installation.update({
+  const doc = await prisma.lead.update({
     where: { id: req.params.id },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: coerceBody(req.body) as any,
   })
-  emitChange('installations')
+  emitChange('leads')
   res.json(doc)
 })
 
 router.delete('/:id', async (req, res) => {
-  await prisma.installation.delete({ where: { id: req.params.id } })
-  emitChange('installations')
+  await prisma.lead.delete({ where: { id: req.params.id } })
+  emitChange('leads')
   res.json({ success: true })
 })
 

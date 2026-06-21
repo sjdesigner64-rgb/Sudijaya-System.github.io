@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Upload, Paperclip, Loader2, Trash2, Download } from 'lucide-react'
+import { Plus, Upload, Paperclip, Loader2, Trash2, Download, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
 import type { DrawingRequest, TaskPriority, TaskStatus, Project, User, Attachment } from '@/types'
@@ -9,6 +9,10 @@ import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
 import { uploadFile, buildPath } from '@/services/storage.service'
 import { notifyDrawingRequest } from '@/services/notification.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 9
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: 'bg-gray-100 dark:bg-gray-800 text-gray-700',
@@ -207,6 +211,11 @@ export function DrawingRequestPage() {
   const [fabrikasiUsers, setFabrikasiUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editRequest, setEditRequest] = useState<DrawingRequest | undefined>()
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<DrawingRequest | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubR = subscribeToCollection('requests_drawing', [], (docs) => {
@@ -223,10 +232,23 @@ export function DrawingRequestPage() {
     return () => { unsubR(); unsubP(); unsubU() }
   }, [])
 
-  const handleDelete = async (req: DrawingRequest) => {
-    if (!confirm(`Hapus request gambar untuk "${req.projectName}"?`)) return
-    await deleteDocument('requests_drawing', req.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('requests_drawing', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
+
+  const filtered = requests.filter((req) => {
+    const matchSearch = req.projectName.toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || req.status === filterStatus
+    return matchSearch && matchStatus
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -245,9 +267,32 @@ export function DrawingRequestPage() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari nama project..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value as TaskStatus | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Status</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">Diproses</option>
+          <option value="done">Selesai</option>
+        </select>
+      </div>
+
       {/* Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {requests.map((req) => (
+        {paginated.map((req) => (
           <div key={req.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-start justify-between">
               <h3 className="font-medium text-sm">{req.projectName}</h3>
@@ -279,18 +324,20 @@ export function DrawingRequestPage() {
                 {STATUS_LABELS[req.status]}
               </span>
               <button onClick={() => { setEditRequest(req); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
-              <button onClick={() => handleDelete(req)} className="text-muted-foreground hover:text-destructive ml-auto" title="Hapus">
+              <button onClick={() => setDeleteTarget(req)} className="text-muted-foreground hover:text-destructive ml-auto" title="Hapus">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
         ))}
-        {requests.length === 0 && (
+        {filtered.length === 0 && (
           <div className="col-span-full py-12 text-center text-muted-foreground text-sm bg-card border border-border rounded-xl">
             Belum ada request gambar
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       {showForm && (
         <RequestForm
@@ -298,6 +345,15 @@ export function DrawingRequestPage() {
           fabrikasiUsers={fabrikasiUsers}
           initial={editRequest}
           onClose={() => { setShowForm(false); setEditRequest(undefined) }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus request gambar untuk "${deleteTarget.projectName}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

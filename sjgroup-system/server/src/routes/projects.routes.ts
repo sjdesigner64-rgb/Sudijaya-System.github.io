@@ -45,6 +45,13 @@ router.get('/', async (req, res) => {
     }
   }
 
+  // PIC-based access: sales hanya melihat project yang salesPic-nya dirinya.
+  // Role lain (admin/super_admin/fabrikasi/dst) tetap lihat semua — mereka
+  // bukan "pemilik" field salesPic, cuma butuh daftar project utk dropdown.
+  if (req.user!.role === 'sales') {
+    where.salesPic = req.user!.id
+  }
+
   const docs = await prisma.project.findMany({ where, orderBy })
   res.json(docs)
 })
@@ -52,6 +59,9 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const doc = await prisma.project.findUnique({ where: { id: req.params.id } })
   if (!doc) return res.status(404).json({ error: 'Not found' })
+  if (req.user!.role === 'sales' && doc.salesPic !== req.user!.id) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
   res.json(doc)
 })
 

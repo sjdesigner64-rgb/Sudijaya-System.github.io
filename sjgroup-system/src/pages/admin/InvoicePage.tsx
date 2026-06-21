@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Download, Upload, Loader2 } from 'lucide-react'
+import { Plus, Download, Upload, Loader2, Search } from 'lucide-react'
 import type { Invoice, Project } from '@/types'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -8,6 +8,9 @@ import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, subscribeToCollection } from '@/services/firestore.service'
 import { uploadFile, buildPath } from '@/services/storage.service'
 import { generateInvoicePDF } from '@/utils/pdf'
+import { Pagination } from '@/components/common/Pagination'
+
+const PAGE_SIZE = 10
 
 const currency = (n: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(n)
@@ -95,6 +98,8 @@ export function InvoicePage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const unsubI = subscribeToCollection('invoices', [], (docs) => {
@@ -110,6 +115,13 @@ export function InvoicePage() {
     })
     return () => { unsubI(); unsubP() }
   }, [])
+
+  const filtered = invoices.filter((inv) => {
+    const project = projects.find((p) => p.id === inv.projectId)
+    const q = search.toLowerCase()
+    return inv.invoiceNumber.toLowerCase().includes(q) || (project?.name ?? '').toLowerCase().includes(q) || (project?.customerName ?? '').toLowerCase().includes(q)
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -128,6 +140,17 @@ export function InvoicePage() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+          placeholder="Cari no. invoice, project, atau customer..."
+          className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -140,7 +163,7 @@ export function InvoicePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {invoices.map((inv) => {
+            {paginated.map((inv) => {
               const project = projects.find((p) => p.id === inv.projectId)
               return (
                 <tr key={inv.id} className="hover:bg-muted/20">
@@ -167,7 +190,7 @@ export function InvoicePage() {
                 </tr>
               )
             })}
-            {invoices.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-muted-foreground">Belum ada invoice</td>
               </tr>
@@ -175,6 +198,8 @@ export function InvoicePage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       {showForm && <InvoiceForm projects={projects} onClose={() => setShowForm(false)} />}
     </div>

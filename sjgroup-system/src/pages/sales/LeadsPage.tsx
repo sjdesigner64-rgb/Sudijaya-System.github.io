@@ -5,6 +5,10 @@ import { toDate } from '@/utils/firestore'
 import type { Lead, LeadStatus, ProductCategory, CustomerSource, Customer, User } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   new: 'Baru',
@@ -223,6 +227,9 @@ export function LeadsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editLead, setEditLead] = useState<Lead | undefined>()
   const [salesUsers, setSalesUsers] = useState<User[]>([])
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubL = subscribeToCollection('leads', [], (docs) => {
@@ -250,10 +257,17 @@ export function LeadsPage() {
     const matchStatus = filterStatus === 'all' || l.status === filterStatus
     return matchSearch && matchStatus
   })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const handleDelete = async (lead: Lead) => {
-    if (!confirm(`Hapus lead "${lead.customerName}"?`)) return
-    await deleteDocument('leads', lead.id)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('leads', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -278,14 +292,14 @@ export function LeadsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             placeholder="Cari customer atau produk..."
             className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as LeadStatus | 'all')}
+          onChange={(e) => { setFilterStatus(e.target.value as LeadStatus | 'all'); setPage(1) }}
           className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="all">Semua Status</option>
@@ -331,7 +345,7 @@ export function LeadsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((lead) => (
+              {paginated.map((lead) => (
                 <tr key={lead.id} className="hover:bg-muted/20 transition-colors">
                   <td className="p-3 font-medium">{lead.customerName}</td>
                   <td className="p-3 text-muted-foreground text-xs">{salesName(lead.assignedSales)}</td>
@@ -359,7 +373,7 @@ export function LeadsPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(lead)}
+                        onClick={() => setDeleteTarget(lead)}
                         className="text-muted-foreground hover:text-destructive"
                         title="Hapus"
                       >
@@ -379,12 +393,23 @@ export function LeadsPage() {
         </div>
       </div>
 
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
       {showForm && (
         <LeadForm
           customers={customers}
           salesUsers={salesUsers}
           initial={editLead}
           onClose={() => { setShowForm(false); setEditLead(undefined) }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus lead "${deleteTarget.customerName}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

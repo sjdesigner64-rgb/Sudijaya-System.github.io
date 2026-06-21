@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, ExternalLink, Package, Loader2 } from 'lucide-react'
+import { Plus, Search, ExternalLink, Package, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { WarehouseStock, StockCategory, StockStatus } from '@/types'
-import { createDoc, subscribeToCollection } from '@/services/firestore.service'
+import { createDoc, updateDocument, deleteDocument, subscribeToCollection } from '@/services/firestore.service'
+import { Pagination } from '@/components/common/Pagination'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+
+const PAGE_SIZE = 10
 
 const CATEGORY_LABELS: Record<StockCategory, string> = {
   mesin: 'Mesin',
@@ -22,24 +26,24 @@ const STATUS_LABELS: Record<StockStatus, string> = {
   out_of_stock: 'Habis',
 }
 
-function NewStockForm({ onClose }: { onClose: () => void }) {
+function StockForm({ initial, onClose }: { initial?: WarehouseStock; onClose: () => void }) {
   const [saving, setSaving] = useState(false)
-  const [name, setName] = useState('')
-  const [category, setCategory] = useState<StockCategory>('mesin')
-  const [quantity, setQuantity] = useState('0')
-  const [unit, setUnit] = useState('unit')
-  const [length, setLength] = useState('')
-  const [width, setWidth] = useState('')
-  const [height, setHeight] = useState('')
-  const [weight, setWeight] = useState('')
-  const [status, setStatus] = useState<StockStatus>('ready')
-  const [gdriveLink, setGdriveLink] = useState('')
+  const [name, setName] = useState(initial?.name ?? '')
+  const [category, setCategory] = useState<StockCategory>(initial?.category ?? 'mesin')
+  const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '0')
+  const [unit, setUnit] = useState(initial?.unit ?? 'unit')
+  const [length, setLength] = useState(initial ? String(initial.dimensions.length) : '')
+  const [width, setWidth] = useState(initial ? String(initial.dimensions.width) : '')
+  const [height, setHeight] = useState(initial ? String(initial.dimensions.height) : '')
+  const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
+  const [status, setStatus] = useState<StockStatus>(initial?.status ?? 'ready')
+  const [gdriveLink, setGdriveLink] = useState(initial?.gdriveLink ?? '')
 
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
     try {
-      await createDoc('warehouse_stock', {
+      const data = {
         name,
         category,
         quantity: Number(quantity) || 0,
@@ -48,7 +52,12 @@ function NewStockForm({ onClose }: { onClose: () => void }) {
         weight: Number(weight) || 0,
         gdriveLink: gdriveLink || undefined,
         status,
-      })
+      }
+      if (initial) {
+        await updateDocument('warehouse_stock', initial.id, data)
+      } else {
+        await createDoc('warehouse_stock', data)
+      }
       onClose()
     } finally {
       setSaving(false)
@@ -58,7 +67,7 @@ function NewStockForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md p-5">
-        <h3 className="font-semibold mb-4">Tambah Item Stok</h3>
+        <h3 className="font-semibold mb-4">{initial ? 'Edit Item Stok' : 'Tambah Item Stok'}</h3>
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Nama Item</label>
@@ -140,6 +149,10 @@ export function WarehousePage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<StockCategory | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
+  const [editStock, setEditStock] = useState<WarehouseStock | undefined>()
+  const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<WarehouseStock | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubscribe = subscribeToCollection('warehouse_stock', [], (docs) => {
@@ -148,11 +161,23 @@ export function WarehousePage() {
     return unsubscribe
   }, [])
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDocument('warehouse_stock', deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const filtered = stocks.filter((s) => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = category === 'all' || s.category === category
     return matchSearch && matchCat
   })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const summaryByStatus = (status: StockStatus) => stocks.filter((s) => s.status === status).length
 
@@ -164,7 +189,7 @@ export function WarehousePage() {
           <p className="text-sm text-muted-foreground">Manajemen inventory mesin dan spare part</p>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setEditStock(undefined); setShowForm(true) }}
           className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
@@ -188,14 +213,14 @@ export function WarehousePage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             placeholder="Cari nama item..."
             className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value as StockCategory | 'all')}
+          onChange={(e) => { setCategory(e.target.value as StockCategory | 'all'); setPage(1) }}
           className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="all">Semua Kategori</option>
@@ -218,10 +243,11 @@ export function WarehousePage() {
                 <th className="text-left p-3 font-medium text-muted-foreground">Berat</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Dok</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((item) => (
+              {paginated.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/20">
                   <td className="p-3 font-medium flex items-center gap-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
@@ -247,11 +273,19 @@ export function WarehousePage() {
                       <span className="text-muted-foreground text-xs">-</span>
                     )}
                   </td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <button onClick={() => { setEditStock(item); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                      <button onClick={() => setDeleteTarget(item)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-muted-foreground">Belum ada item stok</td>
+                  <td colSpan={8} className="p-6 text-center text-muted-foreground">Belum ada item stok</td>
                 </tr>
               )}
             </tbody>
@@ -259,7 +293,20 @@ export function WarehousePage() {
         </div>
       </div>
 
-      {showForm && <NewStockForm onClose={() => setShowForm(false)} />}
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+
+      {showForm && (
+        <StockForm initial={editStock} onClose={() => { setShowForm(false); setEditStock(undefined) }} />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Hapus item stok "${deleteTarget.name}"?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }

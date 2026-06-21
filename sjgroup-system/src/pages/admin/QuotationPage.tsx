@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Download, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Download, Trash2, Loader2, Search } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
 import type { Quotation, QuotationStatus, QuotationItem, Project } from '@/types'
@@ -9,6 +9,9 @@ import { generateQuotationPDF } from '@/utils/pdf'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, subscribeToCollection } from '@/services/firestore.service'
 import { notifyQuotationReady } from '@/services/notification.service'
+import { Pagination } from '@/components/common/Pagination'
+
+const PAGE_SIZE = 10
 
 const STATUS_COLORS: Record<QuotationStatus, string> = {
   diproses: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
@@ -158,6 +161,9 @@ export function QuotationPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<QuotationStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const unsubQ = subscribeToCollection('quotations', [], (docs) => {
@@ -174,6 +180,15 @@ export function QuotationPage() {
     })
     return () => { unsubQ(); unsubP() }
   }, [])
+
+  const filtered = quotations.filter((q) => {
+    const project = projects.find((p) => p.id === q.projectId)
+    const q2 = search.toLowerCase()
+    const matchSearch = q.id.toLowerCase().includes(q2) || (project?.name ?? '').toLowerCase().includes(q2) || (project?.customerName ?? '').toLowerCase().includes(q2)
+    const matchStatus = filterStatus === 'all' || q.status === filterStatus
+    return matchSearch && matchStatus
+  })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="space-y-4">
@@ -192,6 +207,29 @@ export function QuotationPage() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari no. quotation, project, atau customer..."
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value as QuotationStatus | 'all'); setPage(1) }}
+          className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="all">Semua Status</option>
+          <option value="diproses">Diproses</option>
+          <option value="pending">Pending</option>
+          <option value="selesai">Selesai</option>
+        </select>
+      </div>
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -205,7 +243,7 @@ export function QuotationPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {quotations.map((q) => {
+              {paginated.map((q) => {
                 const project = projects.find((p) => p.id === q.projectId)
                 return (
                   <tr key={q.id} className="hover:bg-muted/20">
@@ -231,7 +269,7 @@ export function QuotationPage() {
                   </tr>
                 )
               })}
-              {quotations.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
                   <td colSpan={5} className="p-6 text-center text-muted-foreground">Belum ada quotation</td>
                 </tr>
@@ -240,6 +278,8 @@ export function QuotationPage() {
           </table>
         </div>
       </div>
+
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       {showForm && <QuotationForm projects={projects} onClose={() => setShowForm(false)} />}
     </div>
