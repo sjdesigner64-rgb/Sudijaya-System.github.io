@@ -233,18 +233,57 @@ model Installation {
 }
 
 model ContentRequest {
+  id            String   @id @default(cuid())
+  requestedBy   String
+  assignedTo    String?
+  productName   String
+  contentType   String   @default("foto")
+  description   String?  @db.Text
+  priority      String   @default("medium")
+  attachments   Json     @default("[]")
+  status        String   @default("baru")
+  revisionNotes String?  @db.Text
+  storageLink   String?
+  deadline      DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("content_requests")
+}
+
+model MediaAsset {
   id          String   @id @default(cuid())
-  requestedBy String
-  assignedTo  String?
-  productName String
+  category    String
+  name        String
+  fileUrl     String
   description String?  @db.Text
-  status      String
-  storageLink String?
-  deadline    DateTime
+  uploadedBy  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("content_requests")
+  @@map("media_assets")
+}
+
+model ContentData {
+  id               String    @id @default(cuid())
+  seq              Int       @unique @default(autoincrement())
+  title            String
+  category         String
+  platform         Json      @default("[]")
+  format           String
+  caption          String?   @db.Text
+  voiceOverScript  String?   @db.Text
+  hashtag          String?   @db.Text
+  files            Json      @default("[]")
+  driveLink        String?
+  productionStatus String    @default("draft")
+  uploadDate       DateTime?
+  pic              String
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("content_data")
 }
 
 model Meeting {

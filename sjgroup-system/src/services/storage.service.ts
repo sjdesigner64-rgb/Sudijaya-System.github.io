@@ -7,9 +7,9 @@ export const uploadFile = async (path: string, file: File): Promise<string> => {
 
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('path', path)
 
   const res = await api.post('/upload', formData, {
+    params: { path },
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return res.data.url as string
@@ -32,4 +32,8 @@ export const buildPath = {
     `content/${contentId}/${fileName}`,
   ktp: (customerId: string, fileName: string) =>
     `customers/${customerId}/ktp/${fileName}`,
+  mediaAsset: (assetId: string, fileName: string) =>
+    `media-assets/${assetId}/${fileName}`,
+  contentData: (contentDataId: string, fileName: string) =>
+    `content-data/${contentDataId}/${fileName}`,
 }
