@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { api, TOKEN_KEY } from '@/config/api'
 import type { User } from '@/types'
 
@@ -14,10 +15,17 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const res = await api.get<User>('/auth/me')
+    const res = await api.get<User>('/auth/me', { timeout: 8000 })
     return res.data
-  } catch {
-    return null
+  } catch (err) {
+    // Hanya return null (trigger logout) jika server tegas menolak token dengan 401
+    // Error jaringan / server restart / timeout: lempar error agar tidak auto-logout
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      return null
+    }
+    // Network error, timeout, atau server 5xx — jangan logout, lempar ke caller
+    throw err
   }
 }
 
@@ -36,6 +44,7 @@ export const hasValidToken = (): boolean => {
     }
     return true
   } catch {
+    localStorage.removeItem(TOKEN_KEY)
     return false
   }
 }

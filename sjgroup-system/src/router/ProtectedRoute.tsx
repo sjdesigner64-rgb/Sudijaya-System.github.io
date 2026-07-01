@@ -10,7 +10,9 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuthStore()
 
-  if (isLoading) {
+  // Jika masih loading DAN belum ada data auth (tidak ada cache):
+  // tampilkan spinner sambil tunggu validasi server
+  if (isLoading && !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -20,6 +22,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       </div>
     )
   }
+
+  // Jika isAuthenticated = true (dari cache persist), langsung tampilkan konten
+  // tanpa menunggu validasi server selesai — validasi tetap berjalan di background
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />

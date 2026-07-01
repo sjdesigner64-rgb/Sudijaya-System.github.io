@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User, UserRole } from '@/types'
 
+// Harus sama dengan TOKEN_KEY di api.ts (tidak di-import untuk hindari circular dep)
+const AUTH_TOKEN_KEY = 'sjgroup_token'
+
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
@@ -24,11 +27,20 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (isLoading) => set({ isLoading }),
       toggleTheme: () =>
         set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
-      logout: () => set({ user: null, isAuthenticated: false }),
+      logout: () => {
+        // Hapus token dari localStorage agar tidak auto-login ulang
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        set({ user: null, isAuthenticated: false, isLoading: false })
+      },
     }),
     {
       name: 'sjgroup-auth',
-      partialize: (state) => ({ theme: state.theme }),
+      // Persist user agar tidak perlu spinner setiap refresh halaman
+      partialize: (state) => ({
+        theme: state.theme,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 )
