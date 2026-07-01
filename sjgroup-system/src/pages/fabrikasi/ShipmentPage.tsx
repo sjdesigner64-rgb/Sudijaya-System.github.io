@@ -28,7 +28,10 @@ const CONDITION_COLORS: Record<ItemCondition, string> = {
   retur: 'bg-red-100 dark:bg-red-900 text-red-700',
 }
 
-// ─── Shared: PDF Field ─────────────────────────────────────────────────────────
+const err = (invalid: boolean) =>
+  invalid ? 'border-red-400 dark:border-red-600' : 'border-input'
+
+// ─── PDF Field ─────────────────────────────────────────────────────────────────
 function PdfField({
   label, currentUrl, file, onFileChange,
 }: {
@@ -67,7 +70,7 @@ function PdfField({
   )
 }
 
-// ─── Shared: Surat Jalan Cell ──────────────────────────────────────────────────
+// ─── Surat Jalan Cell ──────────────────────────────────────────────────────────
 function SuratJalanCell({ shipment }: { shipment: Shipment }) {
   const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -99,12 +102,12 @@ function SuratJalanCell({ shipment }: { shipment: Shipment }) {
   )
 }
 
-// ─── Shared: dimension/weight fields ──────────────────────────────────────────
+// ─── Dimensi & Detail Fields ──────────────────────────────────────────────────
 function DimensiFields({
   sku, setSku, quantity, setQuantity, weight, setWeight,
   length, setLength, width, setWidth, height, setHeight,
-  condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes,
-  picUsers, skuReadonly,
+  condition, setCondition, picPengiriman, setPicPengiriman,
+  packingNotes, setPackingNotes, picUsers, submitted,
 }: {
   sku: string; setSku: (v: string) => void
   quantity: string; setQuantity: (v: string) => void
@@ -116,16 +119,17 @@ function DimensiFields({
   picPengiriman: string; setPicPengiriman: (v: string) => void
   packingNotes: string; setPackingNotes: (v: string) => void
   picUsers: User[]
-  skuReadonly?: boolean
+  submitted?: boolean
 }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-sm font-medium block mb-1">SKU / Kode Produk</label>
-          <input value={sku} onChange={(e) => setSku(e.target.value)} readOnly={skuReadonly}
-            className={cn('w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring', skuReadonly && 'bg-muted text-muted-foreground')}
+          <input value={sku} onChange={(e) => setSku(e.target.value)}
+            className={`w-full px-3 py-2 border ${err(!!submitted && !sku.trim())} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
             placeholder="Kode produk" />
+          {submitted && !sku.trim() && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
         </div>
         <div>
           <label className="text-sm font-medium block mb-1">Jumlah Barang</label>
@@ -141,10 +145,10 @@ function DimensiFields({
       <div>
         <label className="text-sm font-medium block mb-1">Dimensi Barang (cm)</label>
         <div className="grid grid-cols-3 gap-3">
-          {[['Panjang', length, setLength], ['Lebar', width, setWidth], ['Tinggi', height, setHeight]].map(([lbl, val, setter]) => (
-            <div key={lbl as string}>
-              <label className="text-xs text-muted-foreground block mb-1">{lbl as string}</label>
-              <input type="number" value={val as string} onChange={(e) => (setter as (v: string) => void)(e.target.value)}
+          {([['Panjang', length, setLength], ['Lebar', width, setWidth], ['Tinggi', height, setHeight]] as [string, string, (v: string) => void][]).map(([lbl, val, setter]) => (
+            <div key={lbl}>
+              <label className="text-xs text-muted-foreground block mb-1">{lbl}</label>
+              <input type="number" value={val} onChange={(e) => setter(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           ))}
@@ -163,9 +167,11 @@ function DimensiFields({
         <div>
           <label className="text-sm font-medium block mb-1">PIC Pengiriman <span className="text-red-500">*</span></label>
           <select value={picPengiriman} onChange={(e) => setPicPengiriman(e.target.value)}
-            className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-            {picUsers.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
+            className={`w-full px-3 py-2 border ${err(!!submitted && !picPengiriman)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
+            <option value="">— Pilih PIC —</option>
+            {picUsers.map((u) => (<option key={u.id} value={u.id}>{u.name} ({u.role})</option>))}
           </select>
+          {submitted && !picPengiriman && <p className="text-xs text-red-500 mt-0.5">Wajib pilih PIC</p>}
         </div>
       </div>
       <div>
@@ -189,9 +195,9 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
   const [sku, setSku] = useState(initial?.sku ?? '')
   const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
   const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
-  const [length, setLength] = useState(initial ? String(initial.dimensions.length) : '')
-  const [width, setWidth] = useState(initial ? String(initial.dimensions.width) : '')
-  const [height, setHeight] = useState(initial ? String(initial.dimensions.height) : '')
+  const [length, setLength] = useState(initial ? String(initial.dimensions?.length ?? 0) : '')
+  const [width, setWidth] = useState(initial ? String(initial.dimensions?.width ?? 0) : '')
+  const [height, setHeight] = useState(initial ? String(initial.dimensions?.height ?? 0) : '')
   const [condition, setCondition] = useState<ItemCondition>(initial?.condition ?? 'baru')
   const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
   const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
@@ -199,11 +205,16 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
   const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
   const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
 
+  // Sync picPengiriman default when picUsers loads asynchronously
+  useEffect(() => {
+    if (!picPengiriman && picUsers.length > 0) setPicPengiriman(picUsers[0].id)
+  }, [picUsers])
+
   const selectedProject = projects.find((p) => p.id === projectId)
 
   const handleSave = async () => {
     setSubmitted(true)
-    if (!sku.trim() || !picPengiriman || !user) return
+    if (!sku.trim() || !picPengiriman || !projectId || !user) return
     if (!initial && !addressPdfFile) return
     setSaving(true)
     try {
@@ -213,6 +224,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
         projectId: selectedProject?.id ?? projectId,
         projectName: selectedProject?.name ?? '',
         leadId: null,
+        picSalesId: selectedProject?.salesPic ?? '',
         sku, quantity: Number(quantity) || 0, weight: Number(weight) || 0,
         dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
         condition, picPengiriman, packingNotes, status,
@@ -232,7 +244,6 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
       }
       if (Object.keys(pdfUpdates).length > 0) await updateDocument('shipments', docId, pdfUpdates)
 
-      // Pengiriman selesai → advance project ke instalasi + auto-create Installation (cegah duplikat)
       if (nowSelesai && !wasSelesai && selectedProject) {
         await updateDocument('projects', selectedProject.id, { pipelineStage: 'instalasi' })
         const existingInstall = await getDocuments('installations', [where('projectId', '==', selectedProject.id)])
@@ -260,17 +271,158 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-        <h3 className="font-semibold mb-4">{initial ? 'Edit Pengiriman — Project Sales' : 'Tambah Pengiriman — Project Sales'}</h3>
-        <div className="space-y-3">
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div className="px-5 pt-5 pb-3 shrink-0 border-b border-border">
+          <h3 className="font-semibold">{initial ? 'Edit Pengiriman — Project Sales' : 'Tambah Pengiriman — Project Sales'}</h3>
+        </div>
+        <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Nama Project <span className="text-red-500">*</span></label>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              className={`w-full px-3 py-2 border ${err(submitted && !projectId)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
+              <option value="">— Pilih Project —</option>
               {projects.map((p) => (<option key={p.id} value={p.id}>{p.name} — {p.customerName}</option>))}
             </select>
+            {submitted && !projectId && <p className="text-xs text-red-500 mt-0.5">Wajib pilih project</p>}
           </div>
-          <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers }} />
+          <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
+          <div>
+            <PdfField
+              label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
+              currentUrl={initial?.addressPdfUrl} file={addressPdfFile} onFileChange={setAddressPdfFile}
+            />
+            {submitted && !initial && !addressPdfFile && <p className="text-xs text-red-500 mt-0.5">PDF Alamat wajib diunggah</p>}
+          </div>
+          <PdfField label="Surat Jalan (PDF)" currentUrl={initial?.suratJalanUrl} file={suratJalanFile} onFileChange={setSuratJalanFile} />
+          <div>
+            <label className="text-sm font-medium block mb-1">Status Pengiriman</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as ShipmentStatus)}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              {(Object.entries(STATUS_LABELS) as [ShipmentStatus, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="px-5 pb-5 pt-3 shrink-0 border-t border-border flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Form: Project Satuan ──────────────────────────────────────────────────────
+function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
+  leads: Lead[]; picUsers: User[]; initial?: Shipment; adminIds: string[]; onClose: () => void
+}) {
+  const { user } = useAuthStore()
+  const [saving, setSaving] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [leadId, setLeadId] = useState(initial?.leadId ?? leads[0]?.id ?? '')
+  const [sku, setSku] = useState(initial?.sku ?? '')
+  const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
+  const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
+  const [length, setLength] = useState(initial ? String(initial.dimensions?.length ?? 0) : '')
+  const [width, setWidth] = useState(initial ? String(initial.dimensions?.width ?? 0) : '')
+  const [height, setHeight] = useState(initial ? String(initial.dimensions?.height ?? 0) : '')
+  const [condition, setCondition] = useState<ItemCondition>(initial?.condition ?? 'baru')
+  const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
+  const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
+  const [status, setStatus] = useState<ShipmentStatus>(initial?.status ?? 'pending')
+  const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
+  const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
+
+  // Sync defaults when data loads
+  useEffect(() => {
+    if (!picPengiriman && picUsers.length > 0) setPicPengiriman(picUsers[0].id)
+  }, [picUsers])
+  useEffect(() => {
+    if (!leadId && leads.length > 0) setLeadId(leads[0].id)
+  }, [leads])
+
+  const selectedLead = leads.find((l) => l.id === leadId)
+
+  const handleLeadChange = (id: string) => {
+    setLeadId(id)
+    const lead = leads.find((l) => l.id === id)
+    if (lead && !initial) setSku(lead.productName)
+  }
+
+  // Auto-fill SKU on first render if creating new
+  const [skuInitialized, setSkuInitialized] = useState(false)
+  if (!skuInitialized && !initial && selectedLead && !sku) {
+    setSku(selectedLead.productName)
+    setSkuInitialized(true)
+  }
+
+  const handleSave = async () => {
+    setSubmitted(true)
+    if (!leadId || !picPengiriman || !user) return
+    if (!initial && !addressPdfFile) return
+    setSaving(true)
+    try {
+      const base = {
+        projectId: leadId,
+        projectName: selectedLead ? `${selectedLead.customerName} — ${selectedLead.productName}` : '',
+        leadId,
+        picSalesId: selectedLead?.assignedSales ?? '',
+        sku: sku || (selectedLead?.productName ?? ''),
+        quantity: Number(quantity) || 0, weight: Number(weight) || 0,
+        dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
+        condition, picPengiriman, packingNotes, status,
+      }
+      let docId = initial?.id ?? ''
+      if (initial) {
+        await updateDocument('shipments', initial.id, base)
+      } else {
+        docId = await createDoc('shipments', { ...base, status: 'pending', createdBy: user.id })
+        await updateDocument('leads', leadId, { pengiriman: 'proses' })
+      }
+      const pdfUpdates: Record<string, string> = {}
+      if (addressPdfFile) {
+        pdfUpdates.addressPdfUrl = await uploadFile(buildPath.shipment(docId, `alamat-${Date.now()}.pdf`), addressPdfFile)
+      }
+      if (suratJalanFile) {
+        pdfUpdates.suratJalanUrl = await uploadFile(buildPath.shipment(docId, `surat-jalan-${Date.now()}.pdf`), suratJalanFile)
+      }
+      if (Object.keys(pdfUpdates).length > 0) await updateDocument('shipments', docId, pdfUpdates)
+
+      // Jika status diubah ke selesai saat edit
+      if (initial && status === 'selesai' && initial.status !== 'selesai') {
+        await updateDocument('leads', leadId, { pengiriman: 'selesai' })
+      }
+
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div className="px-5 pt-5 pb-3 shrink-0 border-b border-border">
+          <h3 className="font-semibold">{initial ? 'Edit Pengiriman — Project Satuan' : 'Tambah Pengiriman — Project Satuan'}</h3>
+        </div>
+        <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
+          <div>
+            <label className="text-sm font-medium block mb-1">Project Satuan <span className="text-red-500">*</span></label>
+            <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)}
+              className={`w-full px-3 py-2 border ${err(submitted && !leadId)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
+              <option value="">— Pilih Project Satuan —</option>
+              {leads.map((l) => (<option key={l.id} value={l.id}>{l.customerName} — {l.productName}</option>))}
+            </select>
+            {submitted && !leadId && <p className="text-xs text-red-500 mt-0.5">Wajib pilih project satuan</p>}
+            {selectedLead && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Pembayaran: {selectedLead.dpPelunasan === 'sudah_lunas' ? '✓ Sudah Lunas' : selectedLead.dpPelunasan === 'sudah_dp' ? 'Sudah DP' : 'Belum DP'}
+              </p>
+            )}
+          </div>
+          <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
           <div>
             <PdfField
               label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
@@ -291,116 +443,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
             </div>
           )}
         </div>
-        <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Simpan
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Form: Project Satuan ──────────────────────────────────────────────────────
-function SatuanShipmentForm({ leads, picUsers, initial, onClose }: {
-  leads: Lead[]; picUsers: User[]; initial?: Shipment; onClose: () => void
-}) {
-  const { user } = useAuthStore()
-  const [saving, setSaving] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [leadId, setLeadId] = useState(initial?.leadId ?? leads[0]?.id ?? '')
-  const [sku, setSku] = useState(initial?.sku ?? '')
-  const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
-  const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
-  const [length, setLength] = useState(initial ? String(initial.dimensions.length) : '')
-  const [width, setWidth] = useState(initial ? String(initial.dimensions.width) : '')
-  const [height, setHeight] = useState(initial ? String(initial.dimensions.height) : '')
-  const [condition, setCondition] = useState<ItemCondition>(initial?.condition ?? 'baru')
-  const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
-  const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
-  const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
-  const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
-
-  const selectedLead = leads.find((l) => l.id === leadId)
-
-  // Auto-fill SKU from selected lead
-  const handleLeadChange = (id: string) => {
-    setLeadId(id)
-    const lead = leads.find((l) => l.id === id)
-    if (lead && !initial) setSku(lead.productName)
-  }
-
-  // Init SKU from lead if new
-  const [skuInitialized, setSkuInitialized] = useState(false)
-  if (!skuInitialized && !initial && selectedLead && !sku) {
-    setSku(selectedLead.productName)
-    setSkuInitialized(true)
-  }
-
-  const handleSave = async () => {
-    setSubmitted(true)
-    if (!leadId || !picPengiriman || !user) return
-    if (!initial && !addressPdfFile) return
-    setSaving(true)
-    try {
-      const base = {
-        projectId: leadId,
-        projectName: selectedLead ? `${selectedLead.customerName} — ${selectedLead.productName}` : '',
-        leadId,
-        sku: sku || (selectedLead?.productName ?? ''),
-        quantity: Number(quantity) || 0, weight: Number(weight) || 0,
-        dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
-        condition, picPengiriman, packingNotes,
-      }
-      let docId = initial?.id ?? ''
-      if (initial) {
-        await updateDocument('shipments', initial.id, base)
-      } else {
-        docId = await createDoc('shipments', { ...base, createdBy: user.id })
-        await updateDocument('leads', leadId, { pengiriman: 'selesai' })
-      }
-      const pdfUpdates: Record<string, string> = {}
-      if (addressPdfFile) {
-        pdfUpdates.addressPdfUrl = await uploadFile(buildPath.shipment(docId, `alamat-${Date.now()}.pdf`), addressPdfFile)
-      }
-      if (suratJalanFile) {
-        pdfUpdates.suratJalanUrl = await uploadFile(buildPath.shipment(docId, `surat-jalan-${Date.now()}.pdf`), suratJalanFile)
-      }
-      if (Object.keys(pdfUpdates).length > 0) await updateDocument('shipments', docId, pdfUpdates)
-      onClose()
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-        <h3 className="font-semibold mb-4">{initial ? 'Edit Pengiriman — Project Satuan' : 'Tambah Pengiriman — Project Satuan'}</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm font-medium block mb-1">Project Satuan <span className="text-red-500">*</span></label>
-            <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-              {leads.map((l) => (<option key={l.id} value={l.id}>{l.customerName} — {l.productName}</option>))}
-            </select>
-            {selectedLead && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Status: {selectedLead.dpPelunasan === 'sudah_lunas' ? '✓ Sudah Lunas' : 'Belum Lunas'}
-              </p>
-            )}
-          </div>
-          <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers }} />
-          <div>
-            <PdfField
-              label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
-              currentUrl={initial?.addressPdfUrl} file={addressPdfFile} onFileChange={setAddressPdfFile}
-            />
-            {submitted && !initial && !addressPdfFile && <p className="text-xs text-red-500 mt-0.5">PDF Alamat wajib diunggah</p>}
-          </div>
-          <PdfField label="Surat Jalan (PDF)" currentUrl={initial?.suratJalanUrl} file={suratJalanFile} onFileChange={setSuratJalanFile} />
-        </div>
-        <div className="flex gap-2 mt-4">
+        <div className="px-5 pb-5 pt-3 shrink-0 border-t border-border flex gap-2">
           <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
           <button onClick={handleSave} disabled={saving}
             className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-50">
@@ -431,10 +474,8 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
 
       if (newStatus === 'selesai') {
         if (shipment.leadId) {
-          // Project Satuan: tandai lead sebagai sudah dikirim
           await updateDocument('leads', shipment.leadId, { pengiriman: 'selesai' })
         } else {
-          // Project Sales: advance project ke instalasi
           const project = projects.find((p) => p.id === shipment.projectId)
           if (project) {
             await updateDocument('projects', project.id, { pipelineStage: 'instalasi' })
@@ -485,9 +526,9 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
   )
 }
 
-// ─── Shared: Shipment Table ────────────────────────────────────────────────────
+// ─── Shipment Table ────────────────────────────────────────────────────────────
 function ShipmentTable({
-  shipments, allUsers, labelKolom, leads, projects, userId, userRole, showPicSales,
+  shipments, allUsers, labelKolom, leads, projects, userRole, showPicSales,
   adminIds, onEdit, onDelete,
 }: {
   shipments: Shipment[]
@@ -495,7 +536,6 @@ function ShipmentTable({
   labelKolom: string
   leads: Lead[]
   projects: Project[]
-  userId: string
   userRole: string
   showPicSales?: boolean
   adminIds: string[]
@@ -507,80 +547,46 @@ function ShipmentTable({
   const [filterStatus, setFilterStatus] = useState<ShipmentStatus | 'all'>('all')
   const [page, setPage] = useState(1)
 
-  const userName = (id: string) => allUsers.find((u) => u.id === id)?.name ?? '-'
+  const userName = (id: string) => allUsers.find((u) => u.id === id)?.name ?? id ?? '-'
   const picSalesName = (s: Shipment) => {
-    // Untuk Project Satuan: gunakan picSalesId yang sudah disimpan, atau fallback ke leads lookup
     const salesId = s.leadId
       ? (s.picSalesId || leads.find((l) => l.id === s.leadId)?.assignedSales || '')
       : (projects.find((p) => p.id === s.projectId)?.salesPic || '')
-    return salesId ? (userName(salesId) !== '-' ? userName(salesId) : salesId) : '-'
+    return salesId ? userName(salesId) : '-'
   }
 
-  const canEdit = (s: Shipment): boolean =>
-    ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
-  const canDelete = (s: Shipment): boolean =>
-    ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
+  const canEdit = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
+  const canDelete = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
 
   const colSpan = showPicSales ? 13 : 12
 
   const filtered = shipments.filter((s) => {
     const q = search.toLowerCase()
-    const matchSearch = (s.projectName ?? '').toLowerCase().includes(q) || s.sku.toLowerCase().includes(q)
+    const matchSearch = (s.projectName ?? '').toLowerCase().includes(q) || (s.sku ?? '').toLowerCase().includes(q)
     const matchCondition = filterCondition === 'all' || s.condition === filterCondition
     const matchStatus = filterStatus === 'all' || (s.status ?? 'pending') === filterStatus
     return matchSearch && matchCondition && matchStatus
   })
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  // ── KPI dari semua shipments yang masuk ke tab ini ──
   const tanpaSuratJalan = shipments.filter((s) => !s.suratJalanUrl && (s.status ?? 'pending') !== 'pending').length
 
   const kpiCards = [
-    {
-      label: 'Pending',
-      count: shipments.filter((s) => (s.status ?? 'pending') === 'pending').length,
-      icon: <Clock className="h-5 w-5" />,
-      color: 'bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400',
-      status: 'pending' as ShipmentStatus | 'all',
-    },
-    {
-      label: 'Proses',
-      count: shipments.filter((s) => s.status === 'proses').length,
-      icon: <Truck className="h-5 w-5" />,
-      color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
-      status: 'proses' as ShipmentStatus | 'all',
-    },
-    {
-      label: 'Selesai',
-      count: shipments.filter((s) => s.status === 'selesai').length,
-      icon: <CheckCircle2 className="h-5 w-5" />,
-      color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
-      status: 'selesai' as ShipmentStatus | 'all',
-    },
-    {
-      label: 'Total',
-      count: shipments.length,
-      icon: <FileText className="h-5 w-5" />,
-      color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
-      status: 'all' as ShipmentStatus | 'all',
-    },
+    { label: 'Pending', count: shipments.filter((s) => (s.status ?? 'pending') === 'pending').length, icon: <Clock className="h-5 w-5" />, color: 'bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400', status: 'pending' as ShipmentStatus | 'all' },
+    { label: 'Proses', count: shipments.filter((s) => s.status === 'proses').length, icon: <Truck className="h-5 w-5" />, color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400', status: 'proses' as ShipmentStatus | 'all' },
+    { label: 'Selesai', count: shipments.filter((s) => s.status === 'selesai').length, icon: <CheckCircle2 className="h-5 w-5" />, color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400', status: 'selesai' as ShipmentStatus | 'all' },
+    { label: 'Total', count: shipments.length, icon: <FileText className="h-5 w-5" />, color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400', status: 'all' as ShipmentStatus | 'all' },
   ]
 
   return (
     <div className="space-y-3">
-      {/* KPI Dashboard */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {kpiCards.map((c) => {
           const isActive = filterStatus === c.status && c.status !== 'all'
           return (
-            <button
-              key={c.label}
-              onClick={() => { setFilterStatus(isActive ? 'all' : c.status); setPage(1) }}
-              className={cn(
-                'bg-card border rounded-xl p-4 text-left transition-all cursor-pointer hover:shadow-md',
-                isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'
-              )}
-            >
+            <button key={c.label} onClick={() => { setFilterStatus(isActive ? 'all' : c.status); setPage(1) }}
+              className={cn('bg-card border rounded-xl p-4 text-left transition-all cursor-pointer hover:shadow-md',
+                isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border')}>
               <div className="flex items-center justify-between mb-3">
                 <span className={cn('p-2 rounded-lg', c.color)}>{c.icon}</span>
                 <span className="text-2xl font-bold">{c.count}</span>
@@ -591,7 +597,6 @@ function ShipmentTable({
         })}
       </div>
 
-      {/* Warning: ada shipment proses/selesai tanpa surat jalan */}
       {tanpaSuratJalan > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -634,57 +639,68 @@ function ShipmentTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {paginated.map((s) => (
-                <tr key={s.id} className="hover:bg-muted/20">
-                  <td className="p-3 font-medium whitespace-nowrap max-w-[200px] truncate">{s.projectName}</td>
-                  <td className="p-3 text-muted-foreground whitespace-nowrap">{s.sku}</td>
-                  <td className="p-3 whitespace-nowrap">{s.quantity}</td>
-                  <td className="p-3 text-muted-foreground whitespace-nowrap">{s.weight} kg</td>
-                  <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{s.dimensions.length}×{s.dimensions.width}×{s.dimensions.height}</td>
-                  <td className="p-3">
-                    <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', CONDITION_COLORS[s.condition])}>
-                      {CONDITION_LABELS[s.condition]}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    {s.addressPdfUrl ? (
-                      <a href={s.addressPdfUrl} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                        <FileText className="h-3 w-3" /> Lihat
-                      </a>
-                    ) : <span className="text-muted-foreground text-xs">-</span>}
-                  </td>
-                  <td className="p-3 text-center"><SuratJalanCell shipment={s} /></td>
-                  {showPicSales && <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{picSalesName(s)}</td>}
-                  <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{s.picPengiriman ? userName(s.picPengiriman) : <span className="italic">Belum diisi</span>}</td>
-                  <td className="p-3">
-                    {canEdit(s) ? (
-                      <StatusInlineSelect shipment={s} projects={projects} leads={leads} adminIds={adminIds} />
-                    ) : (
-                      <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', STATUS_COLORS[(s.status as ShipmentStatus) ?? 'pending'])}>
-                        {STATUS_LABELS[(s.status as ShipmentStatus) ?? 'pending']}
+              {paginated.map((s) => {
+                const cond = (s.condition as ItemCondition) in CONDITION_LABELS
+                  ? (s.condition as ItemCondition)
+                  : 'baru'
+                const dims = s.dimensions ?? { length: 0, width: 0, height: 0 }
+
+                return (
+                  <tr key={s.id} className="hover:bg-muted/20">
+                    <td className="p-3 font-medium whitespace-nowrap max-w-[200px] truncate">{s.projectName}</td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">{s.sku}</td>
+                    <td className="p-3 whitespace-nowrap">{s.quantity}</td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">{s.weight} kg</td>
+                    <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">
+                      {dims.length}×{dims.width}×{dims.height} cm
+                    </td>
+                    <td className="p-3">
+                      <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', CONDITION_COLORS[cond])}>
+                        {CONDITION_LABELS[cond]}
                       </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-muted-foreground text-xs max-w-[140px] truncate">{s.packingNotes}</td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      {canEdit(s) && (
-                        <button onClick={() => onEdit(s)} title="Edit"
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                    </td>
+                    <td className="p-3 text-center">
+                      {s.addressPdfUrl ? (
+                        <a href={s.addressPdfUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          <FileText className="h-3 w-3" /> Lihat
+                        </a>
+                      ) : <span className="text-muted-foreground text-xs">-</span>}
+                    </td>
+                    <td className="p-3 text-center"><SuratJalanCell shipment={s} /></td>
+                    {showPicSales && <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{picSalesName(s)}</td>}
+                    <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">
+                      {s.picPengiriman ? userName(s.picPengiriman) : <span className="italic">Belum diisi</span>}
+                    </td>
+                    <td className="p-3">
+                      {canEdit() ? (
+                        <StatusInlineSelect shipment={s} projects={projects} leads={leads} adminIds={adminIds} />
+                      ) : (
+                        <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', STATUS_COLORS[(s.status as ShipmentStatus) ?? 'pending'])}>
+                          {STATUS_LABELS[(s.status as ShipmentStatus) ?? 'pending']}
+                        </span>
                       )}
-                      {canDelete(s) && (
-                        <button onClick={() => onDelete(s)}
-                          className="p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors" title="Hapus">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="p-3 text-muted-foreground text-xs max-w-[140px] truncate">{s.packingNotes}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2 whitespace-nowrap">
+                        {canEdit() && (
+                          <button onClick={() => onEdit(s)} title="Edit"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canDelete() && (
+                          <button onClick={() => onDelete(s)}
+                            className="p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors" title="Hapus">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
               {filtered.length === 0 && (
                 <tr><td colSpan={colSpan} className="p-6 text-center text-muted-foreground">Belum ada data pengiriman</td></tr>
               )}
@@ -706,7 +722,6 @@ export function ShipmentPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
   const [allUsers, setAllUsers] = useState<User[]>([])
-  const [fabrikasiUsers, setFabrikasiUsers] = useState<User[]>([])
   const [adminIds, setAdminIds] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'sales' | 'satuan'>('sales')
   const [showSalesForm, setShowSalesForm] = useState(false)
@@ -719,11 +734,16 @@ export function ShipmentPage() {
     const unsubS = subscribeToCollection('shipments', [], (docs) => setShipments(docs as unknown as Shipment[]))
     const unsubP = subscribeToCollection('projects', [], (docs) => setProjects(docs as unknown as Project[]))
     const unsubL = subscribeToCollection('leads', [], (docs) => setLeads(docs as unknown as Lead[]))
-    const unsubU = subscribeToCollection('users', [], (docs) => setAllUsers(docs as unknown as User[]))
-    const unsubF = subscribeToCollection('users', [where('role', '==', 'fabrikasi')], (docs) => setFabrikasiUsers(docs as unknown as User[]))
-    const unsubA = subscribeToCollection('users', [where('role', '==', 'admin')], (docs) => setAdminIds((docs as unknown as User[]).map((u) => u.id)))
-    return () => { unsubS(); unsubP(); unsubL(); unsubU(); unsubF(); unsubA() }
+    const unsubU = subscribeToCollection('users', [], (docs) => {
+      const users = docs as unknown as User[]
+      setAllUsers(users)
+      setAdminIds(users.filter((u) => u.role === 'admin' || u.role === 'super_admin').map((u) => u.id))
+    })
+    return () => { unsubS(); unsubP(); unsubL(); unsubU() }
   }, [])
+
+  // PIC Pengiriman = semua user kecuali sales & media
+  const picUsers = allUsers.filter((u) => !['sales', 'media'].includes(u.role))
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -775,7 +795,6 @@ export function ShipmentPage() {
         )}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
         {([
           { id: 'sales', label: 'Project Sales', count: salesShipments.length },
@@ -794,41 +813,32 @@ export function ShipmentPage() {
 
       {activeTab === 'sales' ? (
         <ShipmentTable
-          shipments={salesShipments}
-          allUsers={allUsers}
-          labelKolom="Nama Project"
-          leads={leads} projects={projects}
-          userId={userId} userRole={userRole}
-          showPicSales adminIds={adminIds}
+          shipments={salesShipments} allUsers={allUsers}
+          labelKolom="Nama Project" leads={leads} projects={projects}
+          userRole={userRole} showPicSales adminIds={adminIds}
           onEdit={handleEdit} onDelete={setDeleteTarget}
         />
       ) : (
         <ShipmentTable
-          shipments={satuanShipments}
-          allUsers={allUsers}
-          labelKolom="Customer / Produk"
-          leads={leads} projects={projects}
-          userId={userId} userRole={userRole}
-          showPicSales adminIds={adminIds}
+          shipments={satuanShipments} allUsers={allUsers}
+          labelKolom="Customer / Produk" leads={leads} projects={projects}
+          userRole={userRole} showPicSales adminIds={adminIds}
           onEdit={handleEdit} onDelete={setDeleteTarget}
         />
       )}
 
       {showSalesForm && (
         <SalesShipmentForm
-          projects={projects}
-          picUsers={fabrikasiUsers}
-          initial={editShipment}
-          adminIds={adminIds}
+          projects={projects} picUsers={picUsers}
+          initial={editShipment} adminIds={adminIds}
           onClose={() => { setShowSalesForm(false); setEditShipment(undefined) }}
         />
       )}
 
       {showSatuanForm && (
         <SatuanShipmentForm
-          leads={leads}
-          picUsers={fabrikasiUsers}
-          initial={editShipment}
+          leads={leads} picUsers={picUsers}
+          initial={editShipment} adminIds={adminIds}
           onClose={() => { setShowSatuanForm(false); setEditShipment(undefined) }}
         />
       )}
