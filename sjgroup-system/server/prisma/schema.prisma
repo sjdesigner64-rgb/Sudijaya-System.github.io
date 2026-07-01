@@ -160,7 +160,8 @@ model DrawingRequest {
 
 model BomRequest {
   id            String   @id @default(cuid())
-  projectId     String
+  projectId     String   @default("")
+  namaProject   String?
   requestedBy   String
   assignedAdmin String?
   status        String

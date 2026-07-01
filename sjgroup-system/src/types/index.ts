@@ -208,6 +208,7 @@ export type BomStatus = 'pending_fabrikasi' | 'pending_admin' | 'done'
 export interface BomRequest {
   id: string
   projectId: string
+  namaProject?: string
   requestedBy: string
   assignedAdmin?: string
   status: BomStatus
