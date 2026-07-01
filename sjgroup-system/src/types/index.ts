@@ -136,8 +136,11 @@ export interface Quotation {
   customerName?: string
   machineName?: string
   picSales?: string
+  picAdmin?: string
   lokasi?: string
   tanggal?: Date
+  isRequest?: boolean
+  catatan?: string
 }
 
 // ─── Invoice ──────────────────────────────────────────────────────────────────

@@ -35,6 +35,22 @@ export const notifyDpReceived = async (
   await Promise.all(promises)
 }
 
+export const notifyQuotationRequested = async (
+  adminId: string,
+  salesName: string,
+  customerName: string,
+  quotationId: string
+) => {
+  return createNotification({
+    recipientId: adminId,
+    type: 'quotation',
+    title: 'Request Quotation Masuk',
+    message: `${salesName} mengirim request quotation untuk customer "${customerName}". Segera proses penawaran harga.`,
+    relatedId: quotationId,
+    relatedCollection: 'quotations',
+  })
+}
+
 export const notifyQuotationReady = async (
   salesUserId: string,
   projectName: string,
