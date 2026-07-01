@@ -521,8 +521,14 @@ export function QuotationPage() {
   const userName = (id?: string, list?: User[]) =>
     (list ?? [...salesUsers, ...adminUsers]).find((u) => u.id === id)?.name ?? '-'
 
-  // Sales hanya lihat quotation miliknya; admin lihat semua
-  const visible = quotations.filter((q) => !isSales || q.picSales === user?.id)
+  // super_admin lihat semua; admin hanya lihat yang picAdmin-nya diri sendiri;
+  // sales hanya lihat yang picSales-nya diri sendiri
+  const visible = quotations.filter((q) => {
+    if (user?.role === 'super_admin') return true
+    if (isSales) return q.picSales === user?.id
+    // admin: lihat yang ditugaskan ke mereka ATAU yang belum ada picAdmin
+    return !q.picAdmin || q.picAdmin === user?.id
+  })
 
   const filtered = visible.filter((q) => {
     const q2 = search.toLowerCase()
