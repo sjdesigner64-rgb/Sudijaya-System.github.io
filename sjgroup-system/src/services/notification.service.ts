@@ -149,6 +149,54 @@ export const notifyShipmentReady = async (
   await Promise.all(promises)
 }
 
+export const notifyBomRequest = async (
+  fabrikasiUserIds: string[],
+  projectName: string,
+  bomId: string
+) => {
+  const promises = fabrikasiUserIds.map((uid) =>
+    createNotification({
+      recipientId: uid,
+      type: 'bom_request',
+      title: 'Request BOM Masuk',
+      message: `Sales mengirim request BOM untuk project "${projectName}". Segera proses dan upload hasil BOM.`,
+      relatedId: bomId,
+      relatedCollection: 'requests_bom',
+    })
+  )
+  await Promise.all(promises)
+}
+
+export const notifyBomResultUploaded = async (
+  adminId: string,
+  projectName: string,
+  bomId: string
+) => {
+  return createNotification({
+    recipientId: adminId,
+    type: 'bom_request',
+    title: 'Hasil BOM Siap Diunduh',
+    message: `Fabrikasi telah mengupload hasil BOM untuk project "${projectName}". Silakan download dan konfirmasi selesai.`,
+    relatedId: bomId,
+    relatedCollection: 'requests_bom',
+  })
+}
+
+export const notifyBomDone = async (
+  salesId: string,
+  projectName: string,
+  bomId: string
+) => {
+  return createNotification({
+    recipientId: salesId,
+    type: 'bom_request',
+    title: 'BOM Selesai Diproses',
+    message: `Request BOM untuk project "${projectName}" telah selesai diproses oleh admin.`,
+    relatedId: bomId,
+    relatedCollection: 'requests_bom',
+  })
+}
+
 export const notifyDrawingRequest = async (
   fabrikasiUserIds: string[],
   projectName: string,
