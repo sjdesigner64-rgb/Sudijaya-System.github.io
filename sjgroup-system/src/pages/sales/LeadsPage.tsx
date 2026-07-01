@@ -150,7 +150,18 @@ function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
   const [submitted, setSubmitted] = useState(false)
   const [customerId, setCustomerId] = useState(initial?.customerId ?? customers[0]?.id ?? NEW_CUSTOMER_VALUE)
   const [newCustomerName, setNewCustomerName] = useState(initial?.customerName ?? '')
-  const [assignedSales, setAssignedSales] = useState(initial?.assignedSales ?? user?.id ?? salesUsers[0]?.id ?? '')
+  const [assignedSales, setAssignedSales] = useState(() => {
+    if (initial?.assignedSales) return initial.assignedSales
+    if (user?.role === 'sales') return user.id
+    return salesUsers[0]?.id ?? ''
+  })
+
+  // Jika salesUsers belum load saat form dibuka, set default saat data tersedia
+  useEffect(() => {
+    if (!initial && !assignedSales && salesUsers.length > 0) {
+      setAssignedSales(user?.role === 'sales' ? (user.id) : salesUsers[0].id)
+    }
+  }, [salesUsers]) // eslint-disable-line react-hooks/exhaustive-deps
   const [phone, setPhone] = useState(initial?.phone ?? '')
   const [tanggal, setTanggal] = useState(
     initial?.tanggal ? format(new Date(initial.tanggal), 'yyyy-MM-dd') : ''
