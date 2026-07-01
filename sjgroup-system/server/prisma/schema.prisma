@@ -118,6 +118,9 @@ model Invoice {
   uploadedFileUrl String?
   amount          Float
   picSales        String?
+  picAdmin        String?
+  isRequest       Boolean  @default(false)
+  catatan         String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

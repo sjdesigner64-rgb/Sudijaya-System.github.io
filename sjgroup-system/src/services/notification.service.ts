@@ -66,6 +66,22 @@ export const notifyQuotationReady = async (
   })
 }
 
+export const notifyInvoiceRequested = async (
+  adminId: string,
+  salesName: string,
+  customerName: string,
+  invoiceId: string
+) => {
+  return createNotification({
+    recipientId: adminId,
+    type: 'invoice',
+    title: 'Request Invoice Masuk',
+    message: `${salesName} mengirim request invoice untuk customer "${customerName}". Segera buat dan upload invoice.`,
+    relatedId: invoiceId,
+    relatedCollection: 'invoices',
+  })
+}
+
 export const notifyInvoiceReady = async (
   picSalesId: string,
   invoiceNumber: string,

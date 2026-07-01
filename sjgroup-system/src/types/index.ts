@@ -158,6 +158,9 @@ export interface Invoice {
   amount: number
   createdAt: Date
   picSales?: string
+  picAdmin?: string
+  isRequest?: boolean
+  catatan?: string
 }
 
 // ─── Task ─────────────────────────────────────────────────────────────────────
