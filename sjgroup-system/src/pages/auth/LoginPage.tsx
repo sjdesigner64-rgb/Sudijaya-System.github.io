@@ -109,6 +109,10 @@ export function LoginPage() {
               Masuk
             </button>
           </form>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Lupa password? Hubungi <span className="font-medium text-foreground">Super Admin</span> untuk reset akun Anda.
+          </p>
         </div>
       </div>
     </div>

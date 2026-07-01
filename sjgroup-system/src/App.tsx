@@ -132,12 +132,12 @@ function AppWithAuth() {
             </ProtectedRoute>
           } />
           <Route path="shipment" element={
-            <ProtectedRoute allowedRoles={['super_admin', 'fabrikasi']}>
+            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales', 'fabrikasi']}>
               <ShipmentPage />
             </ProtectedRoute>
           } />
           <Route path="installation" element={
-            <ProtectedRoute allowedRoles={['super_admin', 'fabrikasi']}>
+            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales', 'fabrikasi']}>
               <InstallationPage />
             </ProtectedRoute>
           } />

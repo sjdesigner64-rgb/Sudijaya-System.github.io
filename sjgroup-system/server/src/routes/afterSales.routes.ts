@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
@@ -23,62 +23,72 @@ const coerceBody = (body: Record<string, unknown>) => {
 const router = Router()
 router.use(requireAuth)
 
-router.get('/', async (req, res) => {
-  const where: Record<string, string> = {}
-  let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
+router.get('/', async (req, res, next: NextFunction) => {
+  try {
+    const where: Record<string, string> = {}
+    let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
 
-  for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'sort' && typeof value === 'string') {
-      const [field, dir] = value.split(':')
-      orderBy = { [field]: dir === 'desc' ? 'desc' : 'asc' }
-    } else if (typeof value === 'string') {
-      where[key] = value
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key === 'sort' && typeof value === 'string') {
+        const [field, dir] = value.split(':')
+        orderBy = { [field]: dir === 'desc' ? 'desc' : 'asc' }
+      } else if (typeof value === 'string') {
+        where[key] = value
+      }
     }
-  }
 
-  // PIC-based access: sales hanya lihat tiket yang picAftersales-nya dirinya,
-  // fabrikasi hanya lihat tiket yang technicianAssigned-nya dirinya.
-  // admin & super_admin tetap lihat semua.
-  if (req.user!.role === 'sales') {
-    where.picAftersales = req.user!.id
-  } else if (req.user!.role === 'fabrikasi') {
-    where.technicianAssigned = req.user!.id
-  }
+    // PIC-based access: sales hanya lihat tiket yang picAftersales-nya dirinya,
+    // fabrikasi hanya lihat tiket yang technicianAssigned-nya dirinya.
+    // admin & super_admin tetap lihat semua.
+    if (req.user!.role === 'sales') {
+      where.picAftersales = req.user!.id
+    } else if (req.user!.role === 'fabrikasi') {
+      where.technicianAssigned = req.user!.id
+    }
 
-  const docs = await prisma.afterSales.findMany({ where, orderBy })
-  res.json(docs)
+    const docs = await prisma.afterSales.findMany({ where, orderBy })
+    res.json(docs)
+  } catch (err) { next(err) }
 })
 
-router.get('/:id', async (req, res) => {
-  const doc = await prisma.afterSales.findUnique({ where: { id: req.params.id } })
-  if (!doc) return res.status(404).json({ error: 'Not found' })
-  const role = req.user!.role
-  if (role === 'sales' && doc.picAftersales !== req.user!.id) return res.status(403).json({ error: 'Forbidden' })
-  if (role === 'fabrikasi' && doc.technicianAssigned !== req.user!.id) return res.status(403).json({ error: 'Forbidden' })
-  res.json(doc)
+router.get('/:id', async (req, res, next: NextFunction) => {
+  try {
+    const doc = await prisma.afterSales.findUnique({ where: { id: req.params.id } })
+    if (!doc) return res.status(404).json({ error: 'Not found' })
+    const role = req.user!.role
+    if (role === 'sales' && doc.picAftersales !== req.user!.id) return res.status(403).json({ error: 'Forbidden' })
+    if (role === 'fabrikasi' && doc.technicianAssigned !== req.user!.id) return res.status(403).json({ error: 'Forbidden' })
+    res.json(doc)
+  } catch (err) { next(err) }
 })
 
-router.post('/', async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await prisma.afterSales.create({ data: coerceBody(req.body) as any })
-  emitChange('after_sales')
-  res.json(doc)
-})
-
-router.put('/:id', async (req, res) => {
-  const doc = await prisma.afterSales.update({
-    where: { id: req.params.id },
+router.post('/', async (req, res, next: NextFunction) => {
+  try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: coerceBody(req.body) as any,
-  })
-  emitChange('after_sales')
-  res.json(doc)
+    const doc = await prisma.afterSales.create({ data: coerceBody(req.body) as any })
+    emitChange('after_sales')
+    res.json(doc)
+  } catch (err) { next(err) }
 })
 
-router.delete('/:id', async (req, res) => {
-  await prisma.afterSales.delete({ where: { id: req.params.id } })
-  emitChange('after_sales')
-  res.json({ success: true })
+router.put('/:id', async (req, res, next: NextFunction) => {
+  try {
+    const doc = await prisma.afterSales.update({
+      where: { id: req.params.id },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: coerceBody(req.body) as any,
+    })
+    emitChange('after_sales')
+    res.json(doc)
+  } catch (err) { next(err) }
+})
+
+router.delete('/:id', async (req, res, next: NextFunction) => {
+  try {
+    await prisma.afterSales.delete({ where: { id: req.params.id } })
+    emitChange('after_sales')
+    res.json({ success: true })
+  } catch (err) { next(err) }
 })
 
 export default router

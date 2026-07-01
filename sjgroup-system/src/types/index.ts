@@ -39,8 +39,9 @@ export interface Customer {
 }
 
 // ─── Leads ────────────────────────────────────────────────────────────────────
-export type LeadStatus = 'new' | 'follow_up' | 'qualified' | 'closed_won' | 'closed_lost'
 export type ProductCategory = 'Zenchang' | 'VNT' | 'Nordic' | 'Zenyer' | 'Lijun' | 'Pinecone'
+export type DpPelunasanStatus = 'belum_dp' | 'sudah_dp' | 'sudah_lunas'
+export type PengirimanStatus = 'belum' | 'proses' | 'selesai'
 
 export interface Lead {
   id: string
@@ -49,10 +50,17 @@ export interface Lead {
   productCategory: ProductCategory
   productName: string
   source: CustomerSource
-  status: LeadStatus
   assignedSales: string
   lastFollowUp: Date
   notes: string
+  phone?: string
+  tanggal?: Date
+  lokasi?: string
+  alamat?: string
+  estimatedCost?: number
+  payments?: Payment[]
+  dpPelunasan?: DpPelunasanStatus
+  pengiriman?: PengirimanStatus
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────────
@@ -72,6 +80,7 @@ export interface Payment {
   percentage: number
   date: Date
   status: 'pending' | 'paid'
+  label?: string
 }
 
 export interface MeetingNote {
@@ -97,6 +106,8 @@ export interface Project {
   estimatedDelivery?: Date
   payments: Payment[]
   meetingNotes: MeetingNote[]
+  phone?: string
+  alamat?: string
 }
 
 // ─── Quotation ────────────────────────────────────────────────────────────────
@@ -118,9 +129,15 @@ export interface Quotation {
   status: QuotationStatus
   deadline: Date
   pdfUrl?: string
+  fileUrl?: string
   items: QuotationItem[]
   totalAmount: number
   createdAt: Date
+  customerName?: string
+  machineName?: string
+  picSales?: string
+  lokasi?: string
+  tanggal?: Date
 }
 
 // ─── Invoice ──────────────────────────────────────────────────────────────────
@@ -129,12 +146,15 @@ export interface Invoice {
   quotationId: string
   projectId: string
   customerId: string
+  customerName?: string
+  projectName?: string
   invoiceNumber: string
   createdBy: string
   pdfUrl?: string
   uploadedFileUrl?: string
   amount: number
   createdAt: Date
+  picSales?: string
 }
 
 // ─── Task ─────────────────────────────────────────────────────────────────────
@@ -177,12 +197,13 @@ export interface DrawingRequest {
 }
 
 // ─── BOM Request ──────────────────────────────────────────────────────────────
-export type BomStatus = 'pending_admin' | 'pending_fabrikasi' | 'done'
+export type BomStatus = 'pending_fabrikasi' | 'pending_admin' | 'done'
 
 export interface BomRequest {
   id: string
   projectId: string
   requestedBy: string
+  assignedAdmin?: string
   status: BomStatus
   attachments: Attachment[]
   resultUrl?: string
@@ -262,18 +283,25 @@ export interface WarehouseStock {
 // ─── Shipment (Pengiriman) ──────────────────────────────────────────────────────
 export type ItemCondition = 'baru' | 'bekas' | 'servis' | 'retur'
 
+export type ShipmentStatus = 'pending' | 'proses' | 'selesai'
+
 export interface Shipment {
   id: string
   projectId: string
   projectName?: string
+  leadId?: string
+  picSalesId?: string
   sku: string
   quantity: number
   weight: number
   dimensions: Dimensions
   condition: ItemCondition
-  address: string
+  address?: string
+  addressPdfUrl?: string
+  suratJalanUrl?: string
   picPengiriman: string
   packingNotes?: string
+  status: ShipmentStatus
   createdBy: string
   createdAt: Date
   updatedAt: Date
@@ -286,10 +314,13 @@ export interface Installation {
   id: string
   projectId: string
   projectName?: string
+  customerName?: string
   picInstalasi: string
   installationDate: Date
   estimatedDuration: string
   deadline: Date
+  lokasi?: string
+  notes?: string
   status: InstallationStatus
   createdBy: string
   createdAt: Date
@@ -412,6 +443,8 @@ export type WarrantyStatus = 'aktif' | 'habis' | 'tidak_garansi'
 export interface AfterSales {
   id: string
   reportDate: Date
+  projectId?: string
+  leadId?: string
   customerId: string
   customerName?: string
   machineName: string

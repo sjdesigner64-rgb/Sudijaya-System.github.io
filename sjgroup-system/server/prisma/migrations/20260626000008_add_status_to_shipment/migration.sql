@@ -1,0 +1,1 @@
+ALTER TABLE `shipments` ADD COLUMN IF NOT EXISTS `status` VARCHAR(191) NOT NULL DEFAULT 'pending';

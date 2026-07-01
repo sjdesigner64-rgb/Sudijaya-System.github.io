@@ -50,6 +50,73 @@ export const notifyQuotationReady = async (
   })
 }
 
+export const notifyInvoiceReady = async (
+  picSalesId: string,
+  invoiceNumber: string,
+  invoiceId: string
+) => {
+  return createNotification({
+    recipientId: picSalesId,
+    type: 'invoice',
+    title: 'Invoice Baru',
+    message: `Invoice ${invoiceNumber} telah dibuat. Silakan periksa detail invoice.`,
+    relatedId: invoiceId,
+    relatedCollection: 'invoices',
+  })
+}
+
+export const notifyLeadAssigned = async (
+  salesId: string,
+  customerName: string,
+  leadId: string
+) => {
+  return createNotification({
+    recipientId: salesId,
+    type: 'task',
+    title: 'Project Satuan Baru',
+    message: `Project satuan dari customer "${customerName}" telah ditugaskan kepada Anda.`,
+    relatedId: leadId,
+    relatedCollection: 'leads',
+  })
+}
+
+export const notifyProjectSalesCreated = async (
+  salesPicId: string,
+  projectName: string,
+  projectId: string
+) => {
+  return createNotification({
+    recipientId: salesPicId,
+    type: 'task',
+    title: 'Project Sales Baru',
+    message: `Project "${projectName}" telah dibuat dan ditugaskan kepada Anda.`,
+    relatedId: projectId,
+    relatedCollection: 'projects',
+  })
+}
+
+export const notifyShipmentReady = async (
+  salesId: string,
+  adminUserIds: string[],
+  customerName: string,
+  productName: string,
+  leadId: string
+) => {
+  const msg = `Project Satuan "${productName}" milik ${customerName} telah lunas dan masuk ke tahap pengiriman. Segera lengkapi data pengiriman.`
+  const recipients = [...new Set([salesId, ...adminUserIds])]
+  const promises = recipients.map((uid) =>
+    createNotification({
+      recipientId: uid,
+      type: 'reminder',
+      title: 'Masuk Tahap Pengiriman',
+      message: msg,
+      relatedId: leadId,
+      relatedCollection: 'leads',
+    })
+  )
+  await Promise.all(promises)
+}
+
 export const notifyDrawingRequest = async (
   fabrikasiUserIds: string[],
   projectName: string,
@@ -63,6 +130,90 @@ export const notifyDrawingRequest = async (
       message: `Sales mengirim request gambar untuk project ${projectName}.`,
       relatedId: requestId,
       relatedCollection: 'requests_drawing',
+    })
+  )
+  await Promise.all(promises)
+}
+
+export const notifyShipmentSalesReady = async (
+  salesId: string,
+  adminUserIds: string[],
+  projectName: string,
+  projectId: string
+) => {
+  const msg = `Project Sales "${projectName}" telah lunas dan masuk ke tahap pengiriman. Segera lengkapi data pengiriman.`
+  const recipients = [...new Set([salesId, ...adminUserIds])]
+  const promises = recipients.map((uid) =>
+    createNotification({
+      recipientId: uid,
+      type: 'reminder',
+      title: 'Masuk Tahap Pengiriman',
+      message: msg,
+      relatedId: projectId,
+      relatedCollection: 'projects',
+    })
+  )
+  await Promise.all(promises)
+}
+
+export const notifyMeetingFabrikasi = async (
+  salesId: string,
+  fabrikasiIds: string[],
+  projectName: string,
+  projectId: string
+) => {
+  const msg = `Project "${projectName}" siap masuk tahap Meeting Fabrikasi. DP dan gambar sudah selesai.`
+  const recipients = [...new Set([salesId, ...fabrikasiIds])]
+  const promises = recipients.map((uid) =>
+    createNotification({
+      recipientId: uid,
+      type: 'reminder',
+      title: 'Masuk Tahap Meeting Fabrikasi',
+      message: msg,
+      relatedId: projectId,
+      relatedCollection: 'projects',
+    })
+  )
+  await Promise.all(promises)
+}
+
+export const notifyQcFatDone = async (
+  adminIds: string[],
+  mediaIds: string[],
+  projectName: string,
+  projectId: string
+) => {
+  const msg = `Tahap QC & FAT project "${projectName}" telah selesai. Segera siapkan proses pelunasan.`
+  const recipients = [...new Set([...adminIds, ...mediaIds])]
+  const promises = recipients.map((uid) =>
+    createNotification({
+      recipientId: uid,
+      type: 'reminder',
+      title: 'QC & FAT Selesai',
+      message: msg,
+      relatedId: projectId,
+      relatedCollection: 'projects',
+    })
+  )
+  await Promise.all(promises)
+}
+
+export const notifyPengirimSalesSelesai = async (
+  salesId: string,
+  adminIds: string[],
+  projectName: string,
+  projectId: string
+) => {
+  const msg = `Pengiriman project "${projectName}" telah selesai. Proyek akan dilanjutkan ke tahap instalasi.`
+  const recipients = [...new Set([salesId, ...adminIds])]
+  const promises = recipients.map((uid) =>
+    createNotification({
+      recipientId: uid,
+      type: 'reminder',
+      title: 'Pengiriman Selesai — Masuk Instalasi',
+      message: msg,
+      relatedId: projectId,
+      relatedCollection: 'projects',
     })
   )
   await Promise.all(promises)

@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
@@ -23,62 +23,68 @@ const coerceBody = (body: Record<string, unknown>) => {
 
 const router = Router()
 router.use(requireAuth)
-router.use(requireRole(['fabrikasi', 'super_admin']))
+router.use(requireRole(['fabrikasi', 'super_admin', 'admin', 'sales']))
 
-router.get('/', async (req, res) => {
-  const where: Record<string, string> = {}
-  let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
+router.get('/', async (req, res, next: NextFunction) => {
+  try {
+    const where: Record<string, string> = {}
+    let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
 
-  for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'sort' && typeof value === 'string') {
-      const [field, dir] = value.split(':')
-      orderBy = { [field]: dir === 'desc' ? 'desc' : 'asc' }
-    } else if (typeof value === 'string') {
-      where[key] = value
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key === 'sort' && typeof value === 'string') {
+        const [field, dir] = value.split(':')
+        orderBy = { [field]: dir === 'desc' ? 'desc' : 'asc' }
+      } else if (typeof value === 'string') {
+        where[key] = value
+      }
     }
-  }
 
-  // PIC-based access: fabrikasi hanya lihat pengiriman yang picPengiriman-nya
-  // dirinya. super_admin tetap lihat semua.
-  if (req.user!.role === 'fabrikasi') {
-    where.picPengiriman = req.user!.id
-  }
+    // fabrikasi hanya lihat shipment yang picPengiriman-nya dirinya
+    if (req.user!.role === 'fabrikasi') {
+      where.picPengiriman = req.user!.id
+    }
 
-  const docs = await prisma.shipment.findMany({ where, orderBy })
-  res.json(docs)
+    const docs = await prisma.shipment.findMany({ where, orderBy })
+    res.json(docs)
+  } catch (err) { next(err) }
 })
 
-router.get('/:id', async (req, res) => {
-  const doc = await prisma.shipment.findUnique({ where: { id: req.params.id } })
-  if (!doc) return res.status(404).json({ error: 'Not found' })
-  if (req.user!.role === 'fabrikasi' && doc.picPengiriman !== req.user!.id) {
-    return res.status(403).json({ error: 'Forbidden' })
-  }
-  res.json(doc)
+router.get('/:id', async (req, res, next: NextFunction) => {
+  try {
+    const doc = await prisma.shipment.findUnique({ where: { id: req.params.id } })
+    if (!doc) return res.status(404).json({ error: 'Not found' })
+    res.json(doc)
+  } catch (err) { next(err) }
 })
 
-router.post('/', async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await prisma.shipment.create({ data: coerceBody(req.body) as any })
-  emitChange('shipments')
-  if (doc.projectId) await advanceProjectStage(doc.projectId, 'pengiriman')
-  res.json(doc)
-})
-
-router.put('/:id', async (req, res) => {
-  const doc = await prisma.shipment.update({
-    where: { id: req.params.id },
+router.post('/', async (req, res, next: NextFunction) => {
+  try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: coerceBody(req.body) as any,
-  })
-  emitChange('shipments')
-  res.json(doc)
+    const doc = await prisma.shipment.create({ data: coerceBody(req.body) as any })
+    emitChange('shipments')
+    if (doc.projectId) await advanceProjectStage(doc.projectId, 'pengiriman')
+    res.json(doc)
+  } catch (err) { next(err) }
 })
 
-router.delete('/:id', async (req, res) => {
-  await prisma.shipment.delete({ where: { id: req.params.id } })
-  emitChange('shipments')
-  res.json({ success: true })
+router.put('/:id', async (req, res, next: NextFunction) => {
+  try {
+    const doc = await prisma.shipment.update({
+      where: { id: req.params.id },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: coerceBody(req.body) as any,
+    })
+    emitChange('shipments')
+    res.json(doc)
+  } catch (err) { next(err) }
+})
+
+router.delete('/:id', async (req, res, next: NextFunction) => {
+  try {
+    await prisma.shipment.delete({ where: { id: req.params.id } })
+    emitChange('shipments')
+    res.json({ success: true })
+  } catch (err) { next(err) }
 })
 
 export default router

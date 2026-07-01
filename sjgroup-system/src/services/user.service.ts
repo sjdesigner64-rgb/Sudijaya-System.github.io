@@ -20,7 +20,15 @@ export const deleteUserAccount = async (uid: string) => {
 
 export const updateUserProfile = async (
   uid: string,
-  data: Partial<{ name: string; role: UserRole; isActive: boolean }>
+  data: Partial<{ name: string; email: string; role: UserRole; isActive: boolean }>
 ) => {
-  await updateDocument('users', uid, data)
+  if ('email' in data) {
+    await api.put(`/users/${uid}`, data)
+  } else {
+    await updateDocument('users', uid, data)
+  }
+}
+
+export const resetUserPassword = async (uid: string, password: string) => {
+  await api.put(`/users/${uid}`, { password })
 }

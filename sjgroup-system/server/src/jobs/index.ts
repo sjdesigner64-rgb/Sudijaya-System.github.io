@@ -83,10 +83,10 @@ const sendProductionAlert = async () => {
   }
 }
 
-// archiveClosedLeads — weekly, Sunday 00:00
+// archiveClosedLeads — weekly, Sunday 00:00 — arsipkan lead yang sudah selesai dikirim
 const archiveClosedLeads = async () => {
   const leads = await prisma.lead.findMany({
-    where: { status: { in: ['closed_won', 'closed_lost'] } },
+    where: { pengiriman: 'selesai' },
   })
   for (const lead of leads) {
     await prisma.leadArchive.create({ data: { id: lead.id, data: lead as never } })

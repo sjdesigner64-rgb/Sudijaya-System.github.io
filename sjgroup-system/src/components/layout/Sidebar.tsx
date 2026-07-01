@@ -18,7 +18,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, roles: ['super_admin', 'admin'] },
-  { to: '/leads', label: 'CRM Leads', icon: <Users className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
+  { to: '/leads', label: 'Project Satuan', icon: <Users className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/pipeline', label: 'Project Sales', icon: <BarChart2 className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/quotation', label: 'Quotation', icon: <FileText className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
   { to: '/invoice', label: 'Invoice', icon: <Receipt className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
@@ -33,8 +33,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/media-assets', label: 'Asset Media', icon: <FolderOpen className="h-4 w-4" />, roles: ['super_admin', 'media'] },
   { to: '/content-data', label: 'Data Konten', icon: <Film className="h-4 w-4" />, roles: ['super_admin', 'media'] },
   { to: '/after-sales', label: 'After-Sales', icon: <ShieldCheck className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales'] },
-  { to: '/shipment', label: 'Pengiriman', icon: <Truck className="h-4 w-4" />, roles: ['super_admin', 'fabrikasi'] },
-  { to: '/installation', label: 'Instalasi', icon: <Wrench className="h-4 w-4" />, roles: ['super_admin', 'fabrikasi'] },
+  { to: '/shipment', label: 'Pengiriman', icon: <Truck className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
+  { to: '/installation', label: 'Instalasi', icon: <Wrench className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
   { to: '/inbox', label: 'Inbox', icon: <Inbox className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi', 'warehouse', 'media'] },
   { to: '/users', label: 'Kelola User', icon: <Settings className="h-4 w-4" />, roles: ['super_admin'] },
 ]

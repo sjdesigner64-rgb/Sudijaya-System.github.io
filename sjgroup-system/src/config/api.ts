@@ -3,7 +3,10 @@ import { io } from 'socket.io-client'
 
 export const TOKEN_KEY = 'sjgroup_token'
 
-export const api = axios.create({ baseURL: `${import.meta.env.VITE_API_URL}/api` })
+// Jika VITE_API_URL kosong (production same-origin), gunakan path relatif
+const apiBase = import.meta.env.VITE_API_URL || ''
+
+export const api = axios.create({ baseURL: `${apiBase}/api` })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY)
@@ -11,4 +14,5 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-export const socket = io(import.meta.env.VITE_API_URL, { autoConnect: true })
+// Jika apiBase kosong, socket.io otomatis connect ke origin yang sama
+export const socket = io(apiBase || undefined, { autoConnect: true })

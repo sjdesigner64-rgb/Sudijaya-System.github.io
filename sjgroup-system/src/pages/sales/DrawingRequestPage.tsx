@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Upload, Paperclip, Loader2, Trash2, Download, Search } from 'lucide-react'
+import { Plus, Upload, Paperclip, Loader2, Trash2, Download, Search, Pencil, TrendingUp, Clock, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
 import type { DrawingRequest, TaskPriority, TaskStatus, Project, User, Attachment } from '@/types'
@@ -8,7 +8,7 @@ import { id as localeId } from 'date-fns/locale'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
 import { uploadFile, buildPath } from '@/services/storage.service'
-import { notifyDrawingRequest } from '@/services/notification.service'
+import { notifyDrawingRequest, notifyMeetingFabrikasi } from '@/services/notification.service'
 import { Pagination } from '@/components/common/Pagination'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
@@ -27,9 +27,10 @@ interface RequestFormProps {
   fabrikasiUsers: User[]
   initial?: DrawingRequest
   onClose: () => void
+  onDrawingDone?: (project: Project) => void
 }
 
-function RequestForm({ projects, fabrikasiUsers, initial, onClose }: RequestFormProps) {
+function RequestForm({ projects, fabrikasiUsers, initial, onClose, onDrawingDone }: RequestFormProps) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
   const [projectId, setProjectId] = useState(initial?.projectId ?? projects[0]?.id ?? '')
@@ -60,6 +61,10 @@ function RequestForm({ projects, fabrikasiUsers, initial, onClose }: RequestForm
           status,
           notes,
         })
+        // Status baru selesai (done) → cek apakah DP sudah dibayar
+        if (status === 'done' && initial.status !== 'done') {
+          onDrawingDone?.(selectedProject)
+        }
       } else {
         requestId = await createDoc('requests_drawing', {
           projectId: selectedProject.id,
@@ -209,6 +214,7 @@ export function DrawingRequestPage() {
   const [requests, setRequests] = useState<DrawingRequest[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [fabrikasiUsers, setFabrikasiUsers] = useState<User[]>([])
+  const [fabrikasiIds, setFabrikasiIds] = useState<string[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editRequest, setEditRequest] = useState<DrawingRequest | undefined>()
   const [search, setSearch] = useState('')
@@ -227,10 +233,21 @@ export function DrawingRequestPage() {
       setProjects(docs as unknown as Project[])
     })
     const unsubU = subscribeToCollection('users', [where('role', '==', 'fabrikasi')], (docs) => {
-      setFabrikasiUsers(docs as unknown as User[])
+      const users = docs as unknown as User[]
+      setFabrikasiUsers(users)
+      setFabrikasiIds(users.map((u) => u.id))
     })
     return () => { unsubR(); unsubP(); unsubU() }
   }, [])
+
+  // Ketika drawing request selesai, cek apakah DP sudah dibayar → maju ke meeting_fabrikasi
+  const handleDrawingDone = async (project: Project) => {
+    if (project.pipelineStage !== 'dp_layout') return
+    const dpPaid = project.payments?.some((p) => p.status === 'paid') ?? false
+    if (!dpPaid) return
+    await updateDocument('projects', project.id, { pipelineStage: 'meeting_fabrikasi' })
+    await notifyMeetingFabrikasi(project.salesPic, fabrikasiIds, project.name, project.id)
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -266,6 +283,77 @@ export function DrawingRequestPage() {
           Buat Request
         </button>
       </div>
+
+      {/* KPI Cards */}
+      {(() => {
+        const highUrgent = requests.filter((r) => r.priority === 'high' && r.status !== 'done').length
+        const cards = [
+          {
+            label: 'Total Request',
+            count: requests.length,
+            icon: <TrendingUp className="h-5 w-5" />,
+            color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+            filter: null as TaskStatus | 'all' | null,
+          },
+          {
+            label: 'Pending',
+            count: requests.filter((r) => r.status === 'pending').length,
+            icon: <Clock className="h-5 w-5" />,
+            color: 'bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400',
+            filter: 'pending' as TaskStatus | 'all' | null,
+          },
+          {
+            label: 'Diproses',
+            count: requests.filter((r) => r.status === 'in_progress').length,
+            icon: <RefreshCw className="h-5 w-5" />,
+            color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
+            filter: 'in_progress' as TaskStatus | 'all' | null,
+          },
+          {
+            label: 'Selesai',
+            count: requests.filter((r) => r.status === 'done').length,
+            icon: <CheckCircle2 className="h-5 w-5" />,
+            color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
+            filter: 'done' as TaskStatus | 'all' | null,
+          },
+        ]
+        return (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {cards.map((c) => {
+                const isActive = c.filter !== null && filterStatus === c.filter
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => {
+                      if (!c.filter) return
+                      setFilterStatus(isActive ? 'all' : c.filter)
+                      setPage(1)
+                    }}
+                    className={cn(
+                      'bg-card border rounded-xl p-4 text-left transition-all',
+                      c.filter ? 'cursor-pointer hover:shadow-md' : 'cursor-default',
+                      isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={cn('p-2 rounded-lg', c.color)}>{c.icon}</span>
+                      <span className="text-2xl font-bold">{c.count}</span>
+                    </div>
+                    <p className="text-sm font-medium">{c.label}</p>
+                  </button>
+                )
+              })}
+            </div>
+            {highUrgent > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><span className="font-semibold">{highUrgent}</span> request prioritas Tinggi belum selesai</span>
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
@@ -323,7 +411,7 @@ export function DrawingRequestPage() {
               )}>
                 {STATUS_LABELS[req.status]}
               </span>
-              <button onClick={() => { setEditRequest(req); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+              <button onClick={() => { setEditRequest(req); setShowForm(true) }} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
               <button onClick={() => setDeleteTarget(req)} className="text-muted-foreground hover:text-destructive ml-auto" title="Hapus">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -345,6 +433,7 @@ export function DrawingRequestPage() {
           fabrikasiUsers={fabrikasiUsers}
           initial={editRequest}
           onClose={() => { setShowForm(false); setEditRequest(undefined) }}
+          onDrawingDone={handleDrawingDone}
         />
       )}
 

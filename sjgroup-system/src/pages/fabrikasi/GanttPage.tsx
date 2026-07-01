@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
-import { Plus, Loader2, Trash2, ArrowLeft, Search } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { Plus, Loader2, Trash2, ArrowLeft, Search, TrendingUp, Activity, CheckCircle2, AlertTriangle, GanttChart as GanttChartIcon, Pencil } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { toDate } from '@/utils/firestore'
-import type { ProductionGantt, GanttTask, GanttTaskName, GanttTaskStatus, Project, User } from '@/types'
+import type { ProductionGantt, GanttTask, GanttTaskName, GanttTaskStatus, Project, User, Installation } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { notifyQcFatDone } from '@/services/notification.service'
 import { Pagination } from '@/components/common/Pagination'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
@@ -141,6 +143,7 @@ function EditGanttForm({ gantt, onClose }: { gantt: ProductionGantt; onClose: ()
 
 export function GanttPage() {
   const { user } = useAuthStore()
+  const location = useLocation()
   const [gantts, setGantts] = useState<ProductionGantt[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedId, setSelectedId] = useState<string>('')
@@ -148,11 +151,15 @@ export function GanttPage() {
   const [showForm, setShowForm] = useState(false)
   const [editGantt, setEditGantt] = useState<ProductionGantt | undefined>()
   const [salesUsers, setSalesUsers] = useState<User[]>([])
+  const [adminIds, setAdminIds] = useState<string[]>([])
+  const [mediaIds, setMediaIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<ProductionGantt['status'] | 'all'>('all')
   const [page, setPage] = useState(1)
   const [deleteTarget, setDeleteTarget] = useState<ProductionGantt | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [installation, setInstallation] = useState<Installation | null>(null)
+  const syncingRef = useRef(false)
   const canEdit = user?.role === 'fabrikasi' || user?.role === 'super_admin' || user?.role === 'admin'
 
   useEffect(() => {
@@ -170,8 +177,22 @@ export function GanttPage() {
     const unsubS = subscribeToCollection('users', [where('role', '==', 'sales')], (docs) => {
       setSalesUsers(docs as unknown as User[])
     })
-    return () => { unsubG(); unsubP(); unsubS() }
+    const unsubA = subscribeToCollection('users', [where('role', '==', 'admin')], (docs) => {
+      setAdminIds((docs as unknown as User[]).map((u) => u.id))
+    })
+    const unsubM = subscribeToCollection('users', [where('role', '==', 'media')], (docs) => {
+      setMediaIds((docs as unknown as User[]).map((u) => u.id))
+    })
+    return () => { unsubG(); unsubP(); unsubS(); unsubA(); unsubM() }
   }, [])
+
+  // Auto-select gantt when navigated from PipelinePage with a projectId
+  useEffect(() => {
+    const fromProjectId = (location.state as { projectId?: string } | null)?.projectId
+    if (!fromProjectId || !gantts.length || selectedId) return
+    const match = gantts.find((g) => g.projectId === fromProjectId)
+    if (match) setSelectedId(match.id)
+  }, [gantts, location.state]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedId) {
@@ -195,10 +216,50 @@ export function GanttPage() {
     return unsubscribe
   }, [selectedId])
 
+  // Subscribe ke data instalasi untuk project yang sedang dipilih
+  useEffect(() => {
+    const projectId = gantts.find((g) => g.id === selectedId)?.projectId
+    if (!projectId) { setInstallation(null); return }
+    return subscribeToCollection('installations', [where('projectId', '==', projectId)], (docs) => {
+      if (docs.length === 0) { setInstallation(null); return }
+      const d = docs[0]
+      setInstallation({
+        ...d,
+        installationDate: toDate(d.installationDate as never) ?? new Date(),
+        deadline:         toDate(d.deadline as never)         ?? new Date(),
+      } as unknown as Installation)
+    })
+  }, [selectedId, gantts])
+
+  // Auto-sync task 'instalasi' di Gantt dengan data dari menu Instalasi
+  useEffect(() => {
+    if (!installation || !selectedId || tasks.length === 0 || syncingRef.current) return
+    const instTask = tasks.find((t) => t.taskName === 'instalasi')
+    if (!instTask) return
+
+    const newStart    = installation.installationDate
+    const newDeadline = installation.deadline
+
+    const startDiff    = !instTask.startDate || Math.abs(instTask.startDate.getTime() - newStart.getTime()) > 60_000
+    const deadlineDiff = Math.abs(instTask.deadline.getTime() - newDeadline.getTime()) > 60_000
+
+    if (!startDiff && !deadlineDiff) return
+
+    syncingRef.current = true
+    updateDocument(`production_gantt/${selectedId}/tasks`, instTask.id, {
+      startDate: newStart,
+      deadline:  newDeadline,
+    }).finally(() => { syncingRef.current = false })
+  }, [installation, tasks, selectedId])
+
   const selected = gantts.find((g) => g.id === selectedId)
 
   const handleStatusChange = async (taskId: string, status: GanttTaskStatus) => {
+    const task = tasks.find((t) => t.id === taskId)
     await updateDocument(`production_gantt/${selectedId}/tasks`, taskId, { status })
+    if (status === 'done' && task?.status !== 'done' && task?.taskName === 'qc_fat' && selected) {
+      await notifyQcFatDone(adminIds, mediaIds, selected.projectName, selected.projectId)
+    }
   }
 
   const handleDeadlineChange = async (taskId: string, date: Date) => {
@@ -234,12 +295,20 @@ export function GanttPage() {
     }
   }
 
-  const filteredGantts = gantts.filter((g) => {
+  const isSales = user?.role === 'sales'
+
+  // visibleGantts: filtered by role only — used for KPI (unaffected by search/status filter)
+  const visibleGantts = gantts.filter((g) => !isSales || g.salesPic === user?.id)
+
+  const filteredGantts = visibleGantts.filter((g) => {
     const matchSearch = g.projectName.toLowerCase().includes(search.toLowerCase())
     const matchStatus = filterStatus === 'all' || g.status === filterStatus
     return matchSearch && matchStatus
   })
   const paginatedGantts = filteredGantts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const now = new Date()
+  const overdueCount = visibleGantts.filter((g) => g.status === 'active' && g.overallDeadline < now).length
 
   // ── Detail view (Gantt Chart) ──────────────────────────────
   if (selected) {
@@ -277,6 +346,73 @@ export function GanttPage() {
           </button>
         )}
       </div>
+
+      {/* KPI Cards */}
+      {(() => {
+        const cards = [
+          {
+            label: 'Total Project',
+            count: visibleGantts.length,
+            icon: <TrendingUp className="h-5 w-5" />,
+            color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+            filter: null as ProductionGantt['status'] | 'all' | null,
+          },
+          {
+            label: 'Aktif',
+            count: visibleGantts.filter((g) => g.status === 'active').length,
+            icon: <Activity className="h-5 w-5" />,
+            color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
+            filter: 'active' as ProductionGantt['status'] | 'all' | null,
+          },
+          {
+            label: 'Selesai',
+            count: visibleGantts.filter((g) => g.status === 'completed').length,
+            icon: <CheckCircle2 className="h-5 w-5" />,
+            color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
+            filter: 'completed' as ProductionGantt['status'] | 'all' | null,
+          },
+          {
+            label: 'Overdue',
+            count: overdueCount,
+            icon: <AlertTriangle className="h-5 w-5" />,
+            color: overdueCount > 0
+              ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400'
+              : 'bg-gray-100 dark:bg-gray-800/60 text-gray-400',
+            filter: null as ProductionGantt['status'] | 'all' | null,
+          },
+        ]
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {cards.map((c) => {
+              const isActive = c.filter !== null && filterStatus === c.filter
+              return (
+                <button
+                  key={c.label}
+                  onClick={() => {
+                    if (!c.filter) return
+                    setFilterStatus(isActive ? 'all' : c.filter)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    'bg-card border rounded-xl p-4 text-left transition-all',
+                    c.filter ? 'cursor-pointer hover:shadow-md' : 'cursor-default',
+                    isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={cn('p-2 rounded-lg', c.color)}>{c.icon}</span>
+                    <span className="text-2xl font-bold">{c.count}</span>
+                  </div>
+                  <p className="text-sm font-medium">{c.label}</p>
+                  {c.label === 'Overdue' && overdueCount > 0 && (
+                    <p className="text-xs text-red-500 mt-0.5">Deadline terlewat</p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
@@ -320,12 +456,19 @@ export function GanttPage() {
                   <td className="p-3 text-muted-foreground text-xs">{format(g.overallDeadline, 'd MMM yyyy', { locale: localeId })}</td>
                   <td className="p-3"><span className={cn('px-2 py-0.5 text-xs rounded-full', STATUS_COLORS[g.status])}>{STATUS_LABELS[g.status]}</span></td>
                   <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => setSelectedId(g.id)} className="text-xs text-primary hover:underline">Track Gantt Chart</button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setSelectedId(g.id)} title="Track Gantt Chart"
+                        className="p-1.5 rounded-md text-primary hover:bg-primary/10 transition-colors">
+                        <GanttChartIcon className="h-4 w-4" />
+                      </button>
                       {canEdit && (
                         <>
-                          <button onClick={() => setEditGantt(g)} className="text-xs text-primary hover:underline">Edit</button>
-                          <button onClick={() => setDeleteTarget(g)} className="text-muted-foreground hover:text-destructive" title="Hapus">
+                          <button onClick={() => setEditGantt(g)} title="Edit"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteTarget(g)} title="Hapus"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </>

@@ -36,18 +36,25 @@ model Customer {
 }
 
 model Lead {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   customerId      String
   customerName    String?
   productCategory String
   productName     String
   source          String
-  status          String
   assignedSales   String
   lastFollowUp    DateTime
-  notes           String?  @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notes           String?   @db.Text
+  phone           String?
+  tanggal         DateTime?
+  lokasi          String?
+  alamat          String?   @db.Text
+  estimatedCost   Float?
+  payments        Json      @default("[]")
+  dpPelunasan     String?   @default("belum_dp")
+  pengiriman      String?   @default("belum")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model Project {
@@ -68,23 +75,31 @@ model Project {
   estimatedDelivery DateTime?
   payments          Json      @default("[]")
   meetingNotes      Json      @default("[]")
+  phone             String?
+  alamat            String?   @db.Text
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }
 
 model Quotation {
-  id          String   @id @default(cuid())
-  projectId   String
-  customerId  String
-  requestedBy String
-  createdBy   String?
-  status      String
-  deadline    DateTime
-  pdfUrl      String?
-  items       Json
-  totalAmount Float
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  projectId    String
+  customerId   String
+  requestedBy  String
+  createdBy    String?
+  status       String
+  deadline     DateTime
+  pdfUrl       String?
+  fileUrl      String?
+  items        Json
+  totalAmount  Float
+  customerName String?
+  machineName  String?
+  picSales     String?
+  lokasi       String?
+  tanggal      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model Invoice {
@@ -92,11 +107,14 @@ model Invoice {
   quotationId     String?
   projectId       String
   customerId      String
+  customerName    String?
+  projectName     String?
   invoiceNumber   String
   createdBy       String
   pdfUrl          String?
   uploadedFileUrl String?
   amount          Float
+  picSales        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -135,16 +153,17 @@ model DrawingRequest {
 }
 
 model BomRequest {
-  id          String   @id @default(cuid())
-  projectId   String
-  requestedBy String
-  status      String
-  attachments Json     @default("[]")
-  resultUrl   String?
-  visibleTo   Json     @default("[]")
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  projectId     String
+  requestedBy   String
+  assignedAdmin String?
+  status        String
+  attachments   Json     @default("[]")
+  resultUrl     String?
+  visibleTo     Json     @default("[]")
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("requests_bom")
 }
@@ -201,14 +220,19 @@ model Shipment {
   id            String   @id @default(cuid())
   projectId     String
   projectName   String?
+  leadId        String?
+  picSalesId    String?
   sku           String
   quantity      Int      @default(0)
   weight        Float    @default(0)
   dimensions    Json
-  condition     String
-  address       String?  @db.Text
-  picPengiriman String
-  packingNotes  String?  @db.Text
+  condition      String
+  address        String?  @db.Text
+  addressPdfUrl  String?
+  suratJalanUrl  String?
+  picPengiriman  String
+  packingNotes   String?  @db.Text
+  status         String   @default("pending")
   createdBy     String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -220,10 +244,13 @@ model Installation {
   id                String   @id @default(cuid())
   projectId         String
   projectName       String?
-  picInstalasi      String
+  customerName      String?
+  picInstalasi      String   @default("")
   installationDate  DateTime
   estimatedDuration String?
   deadline          DateTime
+  lokasi            String?
+  notes             String?  @db.Text
   status            String
   createdBy         String
   createdAt         DateTime @default(now())
@@ -317,6 +344,8 @@ model Notification {
 model AfterSales {
   id                  String    @id @default(cuid())
   reportDate          DateTime
+  projectId           String?
+  leadId              String?
   customerId          String
   customerName        String?
   machineName         String
@@ -345,4 +374,15 @@ model LeadArchive {
   archivedAt DateTime @default(now())
 
   @@map("leads_archive")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

@@ -36,4 +36,6 @@ export const buildPath = {
     `media-assets/${assetId}/${fileName}`,
   contentData: (contentDataId: string, fileName: string) =>
     `content-data/${contentDataId}/${fileName}`,
+  shipment: (shipmentId: string, fileName: string) =>
+    `shipments/${shipmentId}/${fileName}`,
 }

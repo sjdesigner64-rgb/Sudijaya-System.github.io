@@ -1,0 +1,1 @@
+ALTER TABLE `invoice` ADD COLUMN IF NOT EXISTS `customerName` VARCHAR(191) NULL;

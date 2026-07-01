@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, ExternalLink, Package, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Search, ExternalLink, Package, Loader2, Trash2, Pencil } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { WarehouseStock, StockCategory, StockStatus } from '@/types'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection } from '@/services/firestore.service'
@@ -275,7 +275,7 @@ export function WarehousePage() {
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <button onClick={() => { setEditStock(item); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                      <button onClick={() => { setEditStock(item); setShowForm(true) }} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => setDeleteTarget(item)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

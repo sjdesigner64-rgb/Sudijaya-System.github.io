@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Loader2, Search, Upload, Paperclip, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, Loader2, Search, Upload, Paperclip, ExternalLink, Pencil, TrendingUp, Film, RotateCcw, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { ContentData, ContentCategory, ContentPlatform, ContentFormat, ContentProductionStatus, User, Attachment } from '@/types'
 import { format } from 'date-fns'
@@ -304,6 +304,79 @@ export function ContentDataPage() {
         </button>
       </div>
 
+      {/* KPI Cards */}
+      {(() => {
+        const inProduksiCount = items.filter((i) => i.productionStatus === 'draft' || i.productionStatus === 'editing').length
+        const revisiCount = items.filter((i) => i.productionStatus === 'revisi').length
+        const selesaiCount = items.filter((i) => i.productionStatus === 'approved' || i.productionStatus === 'final').length
+        const cards = [
+          {
+            label: 'Total Konten',
+            count: items.length,
+            icon: <TrendingUp className="h-5 w-5" />,
+            color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+            filter: null as ContentProductionStatus | 'all' | null,
+          },
+          {
+            label: 'Dalam Produksi',
+            count: inProduksiCount,
+            icon: <Film className="h-5 w-5" />,
+            color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
+            filter: null as ContentProductionStatus | 'all' | null,
+          },
+          {
+            label: 'Perlu Revisi',
+            count: revisiCount,
+            icon: <RotateCcw className="h-5 w-5" />,
+            color: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
+            filter: 'revisi' as ContentProductionStatus | 'all' | null,
+          },
+          {
+            label: 'Selesai',
+            count: selesaiCount,
+            icon: <CheckCircle2 className="h-5 w-5" />,
+            color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
+            filter: 'final' as ContentProductionStatus | 'all' | null,
+          },
+        ]
+        return (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {cards.map((c) => {
+                const isActive = c.filter !== null && filterStatus === c.filter
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => {
+                      if (!c.filter) return
+                      setFilterStatus(isActive ? 'all' : c.filter)
+                      setPage(1)
+                    }}
+                    className={cn(
+                      'bg-card border rounded-xl p-4 text-left transition-all',
+                      c.filter ? 'cursor-pointer hover:shadow-md' : 'cursor-default',
+                      isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={cn('p-2 rounded-lg', c.color)}>{c.icon}</span>
+                      <span className="text-2xl font-bold">{c.count}</span>
+                    </div>
+                    <p className="text-sm font-medium">{c.label}</p>
+                  </button>
+                )
+              })}
+            </div>
+            {revisiCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><span className="font-semibold">{revisiCount}</span> konten perlu direvisi</span>
+              </div>
+            )}
+          </>
+        )
+      })()}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -370,7 +443,7 @@ export function ContentDataPage() {
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <button onClick={() => { setEditItem(item); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                      <button onClick={() => { setEditItem(item); setShowForm(true) }} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => setDeleteTarget(item)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

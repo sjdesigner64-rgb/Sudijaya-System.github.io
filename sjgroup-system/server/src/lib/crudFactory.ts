@@ -26,45 +26,55 @@ export function createCrudRouter(model: any, collectionName: string) {
   const router = Router()
   router.use(requireAuth)
 
-  router.get('/', async (req, res) => {
-    const where: Record<string, unknown> = {}
-    let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
+  router.get('/', async (req, res, next) => {
+    try {
+      const where: Record<string, unknown> = {}
+      let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
 
-    for (const [key, value] of Object.entries(req.query)) {
-      if (key === 'sort' && typeof value === 'string') {
-        const [field, dir] = value.split(':')
-        orderBy = { [field]: dir === 'asc' ? 'asc' : 'desc' }
-      } else if (typeof value === 'string') {
-        where[key] = value
+      for (const [key, value] of Object.entries(req.query)) {
+        if (key === 'sort' && typeof value === 'string') {
+          const [field, dir] = value.split(':')
+          orderBy = { [field]: dir === 'asc' ? 'asc' : 'desc' }
+        } else if (typeof value === 'string') {
+          where[key] = value
+        }
       }
-    }
 
-    const docs = await model.findMany({ where, orderBy })
-    res.json(docs)
+      const docs = await model.findMany({ where, orderBy })
+      res.json(docs)
+    } catch (err) { next(err) }
   })
 
-  router.get('/:id', async (req, res) => {
-    const doc = await model.findUnique({ where: { id: req.params.id } })
-    if (!doc) return res.status(404).json({ error: 'Not found' })
-    res.json(doc)
+  router.get('/:id', async (req, res, next) => {
+    try {
+      const doc = await model.findUnique({ where: { id: req.params.id } })
+      if (!doc) return res.status(404).json({ error: 'Not found' })
+      res.json(doc)
+    } catch (err) { next(err) }
   })
 
-  router.post('/', async (req, res) => {
-    const doc = await model.create({ data: coerceBody(req.body) })
-    emitChange(collectionName)
-    res.json(doc)
+  router.post('/', async (req, res, next) => {
+    try {
+      const doc = await model.create({ data: coerceBody(req.body) })
+      emitChange(collectionName)
+      res.json(doc)
+    } catch (err) { next(err) }
   })
 
-  router.put('/:id', async (req, res) => {
-    const doc = await model.update({ where: { id: req.params.id }, data: coerceBody(req.body) })
-    emitChange(collectionName)
-    res.json(doc)
+  router.put('/:id', async (req, res, next) => {
+    try {
+      const doc = await model.update({ where: { id: req.params.id }, data: coerceBody(req.body) })
+      emitChange(collectionName)
+      res.json(doc)
+    } catch (err) { next(err) }
   })
 
-  router.delete('/:id', async (req, res) => {
-    await model.delete({ where: { id: req.params.id } })
-    emitChange(collectionName)
-    res.json({ success: true })
+  router.delete('/:id', async (req, res, next) => {
+    try {
+      await model.delete({ where: { id: req.params.id } })
+      emitChange(collectionName)
+      res.json({ success: true })
+    } catch (err) { next(err) }
   })
 
   return router

@@ -1,0 +1,16 @@
+# Salin file ini ke: /var/www/sjgroup/server/.env
+
+DATABASE_URL="mysql://sjgroup_user:PASSWORD_DB_ANDA@127.0.0.1:3306/sjgroup"
+JWT_SECRET="ganti_dengan_string_random_panjang_min_32_karakter"
+PORT=4000
+HOST=127.0.0.1
+CORS_ORIGIN="https://DOMAIN_ANDA.COM"
+PUBLIC_URL="https://DOMAIN_ANDA.COM"
+FRONTEND_URL="https://DOMAIN_ANDA.COM"
+
+# SMTP (opsional, untuk reset password via email)
+# SMTP_HOST="smtp.gmail.com"
+# SMTP_PORT=587
+# SMTP_USER="email@gmail.com"
+# SMTP_PASS="app-password"
+# SMTP_FROM="Sudijaya Group <email@gmail.com>"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Loader2, Search, Download, Upload } from 'lucide-react'
+import { Plus, Trash2, Loader2, Search, Download, Upload, Pencil, TrendingUp, ImageIcon, Film, LayoutTemplate } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { MediaAsset, MediaAssetCategory } from '@/types'
 import { format } from 'date-fns'
@@ -153,6 +153,68 @@ export function AssetMediaPage() {
         </button>
       </div>
 
+      {/* KPI Cards */}
+      {(() => {
+        const cards = [
+          {
+            label: 'Total Asset',
+            count: assets.length,
+            icon: <TrendingUp className="h-5 w-5" />,
+            color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+            filter: null as MediaAssetCategory | 'all' | null,
+          },
+          {
+            label: 'Foto Produk',
+            count: assets.filter((a) => a.category === 'foto_produk' || a.category === 'logo_brand').length,
+            icon: <ImageIcon className="h-5 w-5" />,
+            color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
+            filter: 'foto_produk' as MediaAssetCategory | 'all' | null,
+          },
+          {
+            label: 'Video & B-roll',
+            count: assets.filter((a) => a.category === 'video_produk' || a.category === 'broll').length,
+            icon: <Film className="h-5 w-5" />,
+            color: 'bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400',
+            filter: 'video_produk' as MediaAssetCategory | 'all' | null,
+          },
+          {
+            label: 'Template Desain',
+            count: assets.filter((a) => a.category === 'template_desain').length,
+            icon: <LayoutTemplate className="h-5 w-5" />,
+            color: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
+            filter: 'template_desain' as MediaAssetCategory | 'all' | null,
+          },
+        ]
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {cards.map((c) => {
+              const isActive = c.filter !== null && filterCategory === c.filter
+              return (
+                <button
+                  key={c.label}
+                  onClick={() => {
+                    if (!c.filter) return
+                    setFilterCategory(isActive ? 'all' : c.filter)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    'bg-card border rounded-xl p-4 text-left transition-all',
+                    c.filter ? 'cursor-pointer hover:shadow-md' : 'cursor-default',
+                    isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={cn('p-2 rounded-lg', c.color)}>{c.icon}</span>
+                    <span className="text-2xl font-bold">{c.count}</span>
+                  </div>
+                  <p className="text-sm font-medium">{c.label}</p>
+                </button>
+              )
+            })}
+          </div>
+        )
+      })()}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -203,7 +265,7 @@ export function AssetMediaPage() {
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <button onClick={() => { setEditAsset(a); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                      <button onClick={() => { setEditAsset(a); setShowForm(true) }} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => setDeleteTarget(a)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

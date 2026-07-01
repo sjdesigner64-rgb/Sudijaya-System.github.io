@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
@@ -24,66 +24,76 @@ const coerceBody = (body: Record<string, unknown>) => {
 const router = Router()
 router.use(requireAuth)
 
-router.get('/', async (req, res) => {
-  const where: Record<string, string> = {}
-  let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
+router.get('/', async (req, res, next: NextFunction) => {
+  try {
+    const where: Record<string, string> = {}
+    let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
 
-  for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'sort' && typeof value === 'string') {
-      const [field, dir] = value.split(':')
-      orderBy = { [field]: dir === 'desc' ? 'desc' : 'asc' }
-    } else if (typeof value === 'string') {
-      where[key] = value
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key === 'sort' && typeof value === 'string') {
+        const [field, dir] = value.split(':')
+        orderBy = { [field]: dir === 'desc' ? 'desc' : 'asc' }
+      } else if (typeof value === 'string') {
+        where[key] = value
+      }
     }
-  }
 
-  const docs = await prisma.task.findMany({ where, orderBy })
-  res.json(docs)
+    const docs = await prisma.task.findMany({ where, orderBy })
+    res.json(docs)
+  } catch (err) { next(err) }
 })
 
-router.get('/:id', async (req, res) => {
-  const doc = await prisma.task.findUnique({ where: { id: req.params.id } })
-  if (!doc) return res.status(404).json({ error: 'Not found' })
-  res.json(doc)
+router.get('/:id', async (req, res, next: NextFunction) => {
+  try {
+    const doc = await prisma.task.findUnique({ where: { id: req.params.id } })
+    if (!doc) return res.status(404).json({ error: 'Not found' })
+    res.json(doc)
+  } catch (err) { next(err) }
 })
 
-router.post('/', async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await prisma.task.create({ data: coerceBody(req.body) as any })
-  emitChange('tasks')
+router.post('/', async (req, res, next: NextFunction) => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = await prisma.task.create({ data: coerceBody(req.body) as any })
+    emitChange('tasks')
 
-  // Kirim notifikasi ke Inbox PIC yang ditugaskan, sebutkan judul & deskripsi
-  // tugasnya supaya langsung jelas tanpa perlu buka halaman Daily Task dulu.
-  if (doc.assignedTo) {
-    const deadline = doc.dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-    await notifyUser({
-      recipientId: doc.assignedTo,
-      type: 'reminder',
-      title: `Tugas Baru: ${doc.title}`,
-      message: doc.description
-        ? `${doc.description} (Deadline: ${deadline})`
-        : `Anda mendapat tugas baru, deadline ${deadline}.`,
-      relatedId: doc.id,
-      relatedCollection: 'tasks',
+    // Kirim notifikasi ke Inbox PIC yang ditugaskan, sebutkan judul & deskripsi
+    // tugasnya supaya langsung jelas tanpa perlu buka halaman Daily Task dulu.
+    if (doc.assignedTo) {
+      const deadline = doc.dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+      await notifyUser({
+        recipientId: doc.assignedTo,
+        type: 'reminder',
+        title: `Tugas Baru: ${doc.title}`,
+        message: doc.description
+          ? `${doc.description} (Deadline: ${deadline})`
+          : `Anda mendapat tugas baru, deadline ${deadline}.`,
+        relatedId: doc.id,
+        relatedCollection: 'tasks',
+      })
+    }
+
+    res.json(doc)
+  } catch (err) { next(err) }
+})
+
+router.put('/:id', async (req, res, next: NextFunction) => {
+  try {
+    const doc = await prisma.task.update({
+      where: { id: req.params.id },
+      data: coerceBody(req.body),
     })
-  }
-
-  res.json(doc)
+    emitChange('tasks')
+    res.json(doc)
+  } catch (err) { next(err) }
 })
 
-router.put('/:id', async (req, res) => {
-  const doc = await prisma.task.update({
-    where: { id: req.params.id },
-    data: coerceBody(req.body),
-  })
-  emitChange('tasks')
-  res.json(doc)
-})
-
-router.delete('/:id', async (req, res) => {
-  await prisma.task.delete({ where: { id: req.params.id } })
-  emitChange('tasks')
-  res.json({ success: true })
+router.delete('/:id', async (req, res, next: NextFunction) => {
+  try {
+    await prisma.task.delete({ where: { id: req.params.id } })
+    emitChange('tasks')
+    res.json({ success: true })
+  } catch (err) { next(err) }
 })
 
 export default router

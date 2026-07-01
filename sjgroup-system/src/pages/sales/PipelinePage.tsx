@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Loader2, Trash2, Check, ExternalLink, Search } from 'lucide-react'
+import { Plus, Loader2, Trash2, Check, ExternalLink, Search, ArrowRight, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
 import type { Project, PipelineStage, ProductCategory, Customer, MeetingNote, User } from '@/types'
 import { useAuthStore } from '@/store/authStore'
-import { createDoc, updateDocument, deleteDocument, subscribeToCollection, where } from '@/services/firestore.service'
+import { createDoc, updateDocument, deleteDocument, subscribeToCollection, getDocuments, where } from '@/services/firestore.service'
+import { notifyProjectSalesCreated } from '@/services/notification.service'
 import { Pagination } from '@/components/common/Pagination'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
@@ -36,30 +37,58 @@ interface ProjectFormProps {
   onClose: () => void
 }
 
+const err = (invalid: boolean) =>
+  invalid ? 'border-red-400 dark:border-red-600' : 'border-input'
+
 function ProjectForm({ customers, salesUsers, initial, onClose }: ProjectFormProps) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
   const [name, setName] = useState(initial?.name ?? '')
   const [customerId, setCustomerId] = useState(initial?.customerId ?? customers[0]?.id ?? NEW_CUSTOMER_VALUE)
   const [newCustomerName, setNewCustomerName] = useState('')
   const [salesPic, setSalesPic] = useState(initial?.salesPic ?? user?.id ?? salesUsers[0]?.id ?? '')
+
+  // Saat salesUsers selesai load (async), pastikan salesPic menunjuk ke user yang ada di list.
+  // Terjadi ketika user login sebagai admin/super_admin — user.id mereka tidak ada di salesUsers.
+  useEffect(() => {
+    if (initial) return // edit: jangan ubah nilai asli
+    if (salesUsers.length === 0) return
+    setSalesPic((prev) => {
+      if (salesUsers.some((u) => u.id === prev)) return prev // sudah valid
+      const preferred = salesUsers.find((u) => u.id === user?.id)
+      return preferred?.id ?? salesUsers[0].id
+    })
+  }, [salesUsers]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [category, setCategory] = useState<ProductCategory>(initial?.category ?? 'Zenchang')
   const [estimatedValue, setEstimatedValue] = useState(initial ? String(initial.estimatedValue) : '')
+  const [phone, setPhone] = useState(initial?.phone ?? '')
+  const [alamat, setAlamat] = useState(initial?.alamat ?? '')
 
   const isNewCustomer = customerId === NEW_CUSTOMER_VALUE
 
   const handleSave = async () => {
+    setSubmitted(true)
     if (!name.trim() || !user || !salesPic) return
     if (isNewCustomer && !newCustomerName.trim()) return
+    if (!estimatedValue || Number(estimatedValue) <= 0) return
     setSaving(true)
     try {
       if (initial) {
+        const updatedCustomerName = isNewCustomer ? newCustomerName : (customers.find((c) => c.id === customerId)?.name ?? initial.customerName ?? '')
         await updateDocument('projects', initial.id, {
           name,
           category,
           estimatedValue: Number(estimatedValue) || 0,
           salesPic,
+          phone,
+          alamat,
+          customerName: updatedCustomerName,
         })
+        // Sync alamat → lokasi dan customerName ke semua installation project ini
+        const installs = await getDocuments('installations', [where('projectId', '==', initial.id)])
+        await Promise.all(installs.map((inst) => updateDocument('installations', inst.id as string, { lokasi: alamat, customerName: updatedCustomerName })))
       } else {
         let finalCustomerId = customerId
         let finalCustomerName = customers.find((c) => c.id === customerId)?.name ?? ''
@@ -76,7 +105,7 @@ function ProjectForm({ customers, salesUsers, initial, onClose }: ProjectFormPro
             createdBy: user.id,
           })
         }
-        await createDoc('projects', {
+        const projectId = await createDoc('projects', {
           name,
           customerId: finalCustomerId,
           customerName: finalCustomerName,
@@ -88,7 +117,10 @@ function ProjectForm({ customers, salesUsers, initial, onClose }: ProjectFormPro
           dpPercentage: 0,
           payments: [],
           meetingNotes: [],
+          phone,
+          alamat,
         })
+        await notifyProjectSalesCreated(salesPic, name, projectId)
       }
       onClose()
     } finally {
@@ -137,9 +169,29 @@ function ProjectForm({ customers, salesUsers, initial, onClose }: ProjectFormPro
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">Estimasi Nilai (Rp)</label>
-              <input type="number" value={estimatedValue} onChange={(e) => setEstimatedValue(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" placeholder="0" />
+              <label className="text-sm font-medium block mb-1">Estimasi Nilai (Rp) <span className="text-red-500">*</span></label>
+              <input type="number" value={estimatedValue} onChange={(e) => setEstimatedValue(e.target.value)} className={`w-full px-3 py-2 border ${err(submitted && (!estimatedValue || Number(estimatedValue) <= 0))} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} placeholder="0" />
+              {submitted && (!estimatedValue || Number(estimatedValue) <= 0) && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
             </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">No. HP Customer</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="08xxxxxxxxxx"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">Alamat Customer</label>
+            <textarea
+              value={alamat}
+              onChange={(e) => setAlamat(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              placeholder="Alamat lengkap customer..."
+            />
           </div>
         </div>
         <div className="flex gap-2 mt-4">
@@ -154,25 +206,66 @@ function ProjectForm({ customers, salesUsers, initial, onClose }: ProjectFormPro
   )
 }
 
+const STAGE_GUIDE: Partial<Record<PipelineStage, string>> = {
+  leads:              'Proyek baru masuk. Lanjutkan setelah pembayaran DP & request gambar disiapkan.',
+  dp_layout:          'Menunggu pembayaran DP & request gambar selesai. Tahap berikutnya otomatis saat keduanya selesai.',
+  meeting_fabrikasi:  'Jadwalkan & laksanakan meeting dengan tim Fabrikasi. Catat hasil meeting di bawah, lalu tandai selesai.',
+  fabrikasi_build:    'Produk sedang dibuat. Pantau progress melalui Gantt Chart. Tandai selesai setelah QC & FAT.',
+  pelunasan:          'Menunggu pelunasan dari customer. Proses melalui Payment Tracking.',
+  pengiriman:         'Produk siap dikirim. Proses pengiriman melalui menu Pengiriman.',
+  instalasi:          'Produk sudah dikirim. Proses instalasi melalui menu Instalasi.',
+}
+
+// Stages that are normally advanced automatically by the system
+const AUTO_STAGES: PipelineStage[] = ['dp_layout', 'pengiriman']
+
 interface TrackModalProps {
   project: Project
   onClose: () => void
 }
 
 function TrackModal({ project, onClose }: TrackModalProps) {
-  const { user } = useAuthStore()
-  const navigate = useNavigate()
-  const [updating, setUpdating] = useState(false)
-  const [noteDate, setNoteDate] = useState(new Date().toISOString().slice(0, 10))
+  const { user }   = useAuthStore()
+  const navigate   = useNavigate()
+  const [updating, setUpdating]       = useState(false)
+  const [savedStage, setSavedStage]   = useState<PipelineStage | null>(null)
+  const [showManual, setShowManual]   = useState(false)
+  const [noteDate, setNoteDate]       = useState(new Date().toISOString().slice(0, 10))
   const [noteContent, setNoteContent] = useState('')
-  const [savingNote, setSavingNote] = useState(false)
+  const [savingNote, setSavingNote]   = useState(false)
 
   const currentIdx = STAGES.indexOf(project.pipelineStage)
+  const nextStage   = STAGES[currentIdx + 1] as PipelineStage | undefined
+  const isLastStage = currentIdx === STAGES.length - 1
 
   const setStage = async (stage: PipelineStage) => {
+    if (stage === project.pipelineStage) return
     setUpdating(true)
+    setSavedStage(null)
     try {
       await updateDocument('projects', project.id, { pipelineStage: stage })
+
+      // Saat stage masuk 'instalasi', auto-create Installation jika belum ada
+      if (stage === 'instalasi') {
+        const existing = await getDocuments('installations', [where('projectId', '==', project.id)])
+        if (existing.length === 0) {
+          await createDoc('installations', {
+            projectId:         project.id,
+            projectName:       project.name,
+            customerName:      project.customerName ?? '',
+            picInstalasi:      '',
+            installationDate:  new Date(),
+            estimatedDuration: '',
+            deadline:          new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            lokasi:            project.alamat ?? '',
+            notes:             '',
+            status:            'pending',
+            createdBy:         user?.id ?? '',
+          })
+        }
+      }
+
+      setSavedStage(stage)
     } finally {
       setUpdating(false)
     }
@@ -193,80 +286,139 @@ function TrackModal({ project, onClose }: TrackModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-        <h3 className="font-semibold mb-1">{project.name}</h3>
-        <p className="text-sm text-muted-foreground mb-4">{project.customerName}</p>
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto space-y-4">
 
-        {/* Stage stepper */}
-        <div className="space-y-1.5 mb-4">
-          {STAGES.map((stage, idx) => (
-            <button
-              key={stage}
-              onClick={() => setStage(stage)}
-              disabled={updating}
-              className={cn(
-                'w-full flex items-center gap-3 p-2.5 rounded-lg border text-sm text-left transition-colors',
-                stage === project.pipelineStage
-                  ? 'border-primary bg-primary/5 font-medium'
-                  : idx < currentIdx
-                    ? 'border-border text-muted-foreground hover:border-primary/40'
-                    : 'border-dashed border-border text-muted-foreground hover:border-primary/40'
-              )}
-            >
-              <span className={cn(
-                'w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0',
-                idx <= currentIdx ? 'bg-primary text-primary-foreground' : 'border border-border'
-              )}>
-                {idx < currentIdx ? <Check className="h-3 w-3" /> : idx + 1}
-              </span>
-              {STAGE_LABELS[stage]}
-            </button>
-          ))}
+        {/* Header */}
+        <div>
+          <h3 className="font-semibold">{project.name}</h3>
+          <p className="text-sm text-muted-foreground">{project.customerName}</p>
         </div>
 
-        {/* Build Produk -> Gantt Chart shortcut */}
+        {/* Current stage highlight */}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+          <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shrink-0">
+            {currentIdx + 1}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-muted-foreground">Tahap Saat Ini</p>
+            <p className="font-semibold text-sm">{STAGE_LABELS[project.pipelineStage]}</p>
+            {STAGE_GUIDE[project.pipelineStage] && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{STAGE_GUIDE[project.pipelineStage]}</p>
+            )}
+          </div>
+          {savedStage && (
+            <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+              ✓ Tersimpan
+            </span>
+          )}
+        </div>
+
+        {/* Primary action: advance to next stage */}
+        {!isLastStage && nextStage && !AUTO_STAGES.includes(nextStage) && (
+          <button
+            onClick={() => setStage(nextStage)}
+            disabled={updating}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {updating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Check className="h-4 w-4" />
+                Selesaikan & Lanjut ke {STAGE_LABELS[nextStage]}
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Gantt shortcut for fabrikasi_build */}
         {project.pipelineStage === 'fabrikasi_build' && (
           <button
-            onClick={() => navigate('/gantt')}
-            className="w-full flex items-center justify-center gap-2 py-2 mb-4 border border-primary/30 text-primary rounded-md text-sm hover:bg-primary/5"
+            onClick={() => navigate('/gantt', { state: { projectId: project.id } })}
+            className="w-full flex items-center justify-center gap-2 py-2.5 border border-primary/30 text-primary rounded-xl text-sm hover:bg-primary/5 transition-colors"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Buka Project Fabrikasi (Gantt Chart)
           </button>
         )}
 
-        {/* Meeting Fabrikasi -> meeting notes */}
+        {/* Meeting notes for meeting_fabrikasi */}
         {project.pipelineStage === 'meeting_fabrikasi' && (
-          <div className="border-t border-border pt-4">
-            <h4 className="text-sm font-medium mb-2">Catatan Hasil Meeting</h4>
-            <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
+          <div className="border border-border rounded-xl p-3.5 space-y-2.5">
+            <h4 className="text-sm font-medium">Catatan Hasil Meeting</h4>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
               {(project.meetingNotes ?? []).length === 0 && (
                 <p className="text-xs text-muted-foreground">Belum ada catatan meeting.</p>
               )}
               {(project.meetingNotes ?? []).map((n, i) => (
                 <div key={i} className="p-2.5 bg-muted rounded-lg text-sm">
-                  <p className="text-xs text-muted-foreground mb-0.5">{format(new Date(n.date), 'd MMMM yyyy', { locale: localeId })}</p>
-                  <p>{n.notes}</p>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">{format(new Date(n.date), 'd MMMM yyyy', { locale: localeId })}</p>
+                  <p className="text-sm">{n.notes}</p>
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
-              <input type="date" value={noteDate} onChange={(e) => setNoteDate(e.target.value)} className="px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
-              <input
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
+              <input type="date" value={noteDate} onChange={(e) => setNoteDate(e.target.value)}
+                className="px-2 py-1.5 border border-input rounded-md text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+              <input value={noteContent} onChange={(e) => setNoteContent(e.target.value)}
                 placeholder="Hasil meeting..."
-                className="flex-1 px-2 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              <button onClick={addMeetingNote} disabled={savingNote || !noteContent.trim()} className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50">
-                {savingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Tambah'}
+                className="flex-1 px-2 py-1.5 border border-input rounded-md text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+              <button onClick={addMeetingNote} disabled={savingNote || !noteContent.trim()}
+                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs disabled:opacity-50">
+                {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Tambah'}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Catatan & tanggal bisa ditambahkan lebih dari satu kali sesuai jumlah meeting.</p>
           </div>
         )}
 
-        <button onClick={onClose} className="w-full mt-4 py-2 border border-border rounded-md text-sm hover:bg-accent">Tutup</button>
+        {/* Stage stepper (manual override) */}
+        <div className="border border-border rounded-xl overflow-hidden">
+          <button
+            onClick={() => setShowManual((v) => !v)}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/30 transition-colors"
+          >
+            <span>Ubah Tahap Secara Manual</span>
+            {showManual ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showManual && (
+            <div className="border-t border-border p-2 space-y-1">
+              {STAGES.map((stage, idx) => (
+                <button
+                  key={stage}
+                  onClick={() => setStage(stage)}
+                  disabled={updating || stage === project.pipelineStage}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors',
+                    stage === project.pipelineStage
+                      ? 'bg-primary/10 text-primary font-medium cursor-default'
+                      : 'hover:bg-muted/50 text-muted-foreground disabled:opacity-40'
+                  )}
+                >
+                  <span className={cn(
+                    'w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-semibold',
+                    idx < currentIdx ? 'bg-green-500 text-white' :
+                    idx === currentIdx ? 'bg-primary text-primary-foreground' :
+                    'border border-border bg-background'
+                  )}>
+                    {idx < currentIdx ? <Check className="h-3 w-3" /> : idx + 1}
+                  </span>
+                  <span className="flex-1">{STAGE_LABELS[stage]}</span>
+                  {stage === project.pipelineStage && (
+                    <span className="text-[10px] text-primary font-medium">Saat ini</span>
+                  )}
+                  {AUTO_STAGES.includes(stage) && stage !== project.pipelineStage && (
+                    <span className="text-[10px] text-muted-foreground">otomatis</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button onClick={onClose} className="w-full py-2 border border-border rounded-xl text-sm hover:bg-accent transition-colors">
+          Tutup
+        </button>
       </div>
     </div>
   )
@@ -382,6 +534,8 @@ export function PipelinePage() {
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left p-3 font-medium text-muted-foreground">Nama Project</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Customer</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">No. HP</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Alamat</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">PIC Sales</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Brand</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Estimasi Nilai</th>
@@ -394,6 +548,10 @@ export function PipelinePage() {
                 <tr key={item.id} className="hover:bg-muted/20">
                   <td className="p-3 font-medium">{item.name}</td>
                   <td className="p-3 text-muted-foreground">{item.customerName}</td>
+                  <td className="p-3 text-muted-foreground text-xs">{item.phone || '-'}</td>
+                  <td className="p-3 text-muted-foreground text-xs max-w-[160px]">
+                    <span className="line-clamp-2">{item.alamat || '-'}</span>
+                  </td>
                   <td className="p-3 text-muted-foreground text-xs">{salesUsers.find((u) => u.id === item.salesPic)?.name ?? '-'}</td>
                   <td className="p-3"><span className="px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded">{item.category}</span></td>
                   <td className="p-3 font-semibold">{currency(item.estimatedValue)}</td>
@@ -401,7 +559,7 @@ export function PipelinePage() {
                   <td className="p-3">
                     <div className="flex items-center gap-3">
                       <button onClick={() => setTrackProject(item)} className="text-xs text-primary hover:underline">Track</button>
-                      <button onClick={() => { setEditProject(item); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                      <button onClick={() => { setEditProject(item); setShowForm(true) }} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => setDeleteTarget(item)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -410,7 +568,7 @@ export function PipelinePage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Belum ada project</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Belum ada project</td></tr>
               )}
             </tbody>
           </table>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, ExternalLink, Image, Loader2, Search, Upload, Paperclip, Trash2, Download } from 'lucide-react'
+import { Plus, ExternalLink, Image, Loader2, Search, Upload, Paperclip, Trash2, Download, Pencil, TrendingUp, Clock, RefreshCw, RotateCcw, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
 import type { ContentRequest, ContentMediaType, ContentPriority, ContentRequestStatus, User, Attachment } from '@/types'
@@ -296,7 +296,7 @@ function ContentCard({ item, mediaUsers, isMedia, onEdit, onDelete }: {
         )
       )}
       <div className="flex items-center gap-2 pt-1 border-t border-border">
-        <button onClick={onEdit} className="text-xs text-primary hover:underline">Edit</button>
+        <button onClick={onEdit} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
         <button onClick={onDelete} className="text-muted-foreground hover:text-destructive ml-auto" title="Hapus">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -367,6 +367,84 @@ export function ContentPage() {
           Buat Request
         </button>
       </div>
+
+      {/* KPI Cards */}
+      {(() => {
+        const revisiCount = items.filter((r) => r.status === 'revisi').length
+        const cards = [
+          {
+            label: 'Total Request',
+            count: items.length,
+            icon: <TrendingUp className="h-5 w-5" />,
+            color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+            filter: null as ContentRequestStatus | 'all' | null,
+          },
+          {
+            label: 'Baru',
+            count: items.filter((r) => r.status === 'baru').length,
+            icon: <Clock className="h-5 w-5" />,
+            color: 'bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400',
+            filter: 'baru' as ContentRequestStatus | 'all' | null,
+          },
+          {
+            label: 'Diproses',
+            count: items.filter((r) => r.status === 'diproses').length,
+            icon: <RefreshCw className="h-5 w-5" />,
+            color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
+            filter: 'diproses' as ContentRequestStatus | 'all' | null,
+          },
+          {
+            label: 'Revisi',
+            count: revisiCount,
+            icon: <RotateCcw className="h-5 w-5" />,
+            color: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
+            filter: 'revisi' as ContentRequestStatus | 'all' | null,
+          },
+          {
+            label: 'Selesai',
+            count: items.filter((r) => r.status === 'selesai').length,
+            icon: <CheckCircle2 className="h-5 w-5" />,
+            color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
+            filter: 'selesai' as ContentRequestStatus | 'all' | null,
+          },
+        ]
+        return (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {cards.map((c) => {
+                const isActive = c.filter !== null && filterStatus === c.filter
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => {
+                      if (!c.filter) return
+                      setFilterStatus(isActive ? 'all' : c.filter)
+                      setPage(1)
+                    }}
+                    className={cn(
+                      'bg-card border rounded-xl p-4 text-left transition-all',
+                      c.filter ? 'cursor-pointer hover:shadow-md' : 'cursor-default',
+                      isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={cn('p-2 rounded-lg', c.color)}>{c.icon}</span>
+                      <span className="text-2xl font-bold">{c.count}</span>
+                    </div>
+                    <p className="text-sm font-medium">{c.label}</p>
+                  </button>
+                )
+              })}
+            </div>
+            {revisiCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><span className="font-semibold">{revisiCount}</span> request konten perlu direvisi</span>
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">

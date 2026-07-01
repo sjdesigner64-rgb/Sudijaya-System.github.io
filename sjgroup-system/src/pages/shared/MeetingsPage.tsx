@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Calendar, MapPin, Users, Loader2, Trash2, Search } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Loader2, Trash2, Search, Pencil } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { Meeting, MeetingStatus, User } from '@/types'
 import { format } from 'date-fns'
@@ -242,7 +242,7 @@ export function MeetingsPage() {
             </div>
             {canManage && (
               <div className="flex items-center gap-3 border-t border-border pt-2">
-                <button onClick={() => { setEditMeeting(meeting); setShowForm(true) }} className="text-xs text-primary hover:underline">Edit</button>
+                <button onClick={() => { setEditMeeting(meeting); setShowForm(true) }} title="Edit" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
                 <button onClick={() => setDeleteTarget(meeting)} className="text-muted-foreground hover:text-destructive" title="Hapus">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

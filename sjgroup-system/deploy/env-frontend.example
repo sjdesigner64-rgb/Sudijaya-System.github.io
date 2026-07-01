@@ -1,0 +1,4 @@
+# Salin file ini ke: /var/www/sjgroup/.env
+# URL kosong = request ke domain yang sama (Nginx yang proxy ke backend)
+
+VITE_API_URL=
