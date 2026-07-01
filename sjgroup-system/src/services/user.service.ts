@@ -1,5 +1,4 @@
 import { api } from '@/config/api'
-import { updateDocument } from './firestore.service'
 import type { UserRole } from '@/types'
 
 interface CreateUserParams {
@@ -14,21 +13,17 @@ export const createUserAccount = async (params: CreateUserParams) => {
   return res.data.id as string
 }
 
-export const deleteUserAccount = async (uid: string) => {
-  await api.delete(`/users/${uid}`)
+export const deleteUserAccount = async (userId: string) => {
+  await api.delete(`/users/${userId}`)
 }
 
 export const updateUserProfile = async (
-  uid: string,
+  userId: string,
   data: Partial<{ name: string; email: string; role: UserRole; isActive: boolean }>
 ) => {
-  if ('email' in data) {
-    await api.put(`/users/${uid}`, data)
-  } else {
-    await updateDocument('users', uid, data)
-  }
+  await api.put(`/users/${userId}`, data)
 }
 
-export const resetUserPassword = async (uid: string, password: string) => {
-  await api.put(`/users/${uid}`, { password })
+export const resetUserPassword = async (userId: string, password: string) => {
+  await api.put(`/users/${userId}`, { password })
 }

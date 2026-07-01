@@ -1,26 +1,23 @@
 import { useEffect } from 'react'
-import { onAuthChanged, getUserProfile } from '@/services/auth.service'
+import { getCurrentUser, hasValidToken } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
 
 export const useAuth = () => {
-  const { user, isAuthenticated, isLoading, setUser, setLoading } = useAuthStore()
+  const { user, isAuthenticated, isLoading, setUser } = useAuthStore()
 
   useEffect(() => {
-    const unsubscribe = onAuthChanged(async (authUser) => {
-      if (authUser) {
-        const profile = await getUserProfile(authUser.uid)
-        if (profile && profile.isActive) {
-          setUser(profile)
-        } else {
-          setUser(null)
-        }
-      } else {
-        setUser(null)
-        setLoading(false)
-      }
+    // Sudah diinisialisasi (login/logout sudah dipanggil), skip
+    if (!isLoading) return
+
+    if (!hasValidToken()) {
+      setUser(null)
+      return
+    }
+
+    getCurrentUser().then((profile) => {
+      setUser(profile?.isActive ? profile : null)
     })
-    return unsubscribe
-  }, [setUser, setLoading])
+  }, [isLoading, setUser])
 
   return { user, isAuthenticated, isLoading }
 }

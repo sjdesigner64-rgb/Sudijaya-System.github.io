@@ -236,10 +236,18 @@ function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md p-5 my-4">
-        <h3 className="font-semibold mb-4">{initial ? 'Edit Project Satuan' : 'Tambah Project Satuan'}</h3>
-        <div className="space-y-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="px-5 pt-5 pb-3 shrink-0 border-b border-border">
+          <h3 className="font-semibold">{initial ? 'Edit Project Satuan' : 'Tambah Project Satuan'}</h3>
+        </div>
+
+        {/* Body — scrollable */}
+        <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
+
+          {/* Customer */}
           <div>
             <label className="text-sm font-medium block mb-1">Customer</label>
             {initial ? (
@@ -265,49 +273,45 @@ function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
               />
             )}
           </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">No. HP <span className="text-red-500">*</span></label>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className={`w-full px-3 py-2 border ${err(submitted && !phone.trim())} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
-              placeholder="08xxxxxxxxxx"
-            />
-            {submitted && !phone.trim() && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">Tanggal <span className="text-red-500">*</span></label>
-            <input
-              type="date"
-              value={tanggal}
-              onChange={(e) => setTanggal(e.target.value)}
-              className={`w-full px-3 py-2 border ${err(submitted && !tanggal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
-            />
-            {submitted && !tanggal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">Alamat</label>
-            <textarea
-              value={alamat}
-              onChange={(e) => setAlamat(e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-              placeholder="Alamat lengkap customer..."
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">PIC Sales</label>
-            <select
-              value={assignedSales}
-              onChange={(e) => setAssignedSales(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {salesUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
-          </div>
+
+          {/* No. HP + Tanggal */}
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium block mb-1">No. HP <span className="text-red-500">*</span></label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={`w-full px-3 py-2 border ${err(submitted && !phone.trim())} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
+                placeholder="08xxxxxxxxxx"
+              />
+              {submitted && !phone.trim() && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Tanggal <span className="text-red-500">*</span></label>
+              <input
+                type="date"
+                value={tanggal}
+                onChange={(e) => setTanggal(e.target.value)}
+                className={`w-full px-3 py-2 border ${err(submitted && !tanggal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
+              />
+              {submitted && !tanggal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
+            </div>
+          </div>
+
+          {/* PIC Sales + Brand */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium block mb-1">PIC Sales</label>
+              <select
+                value={assignedSales}
+                onChange={(e) => setAssignedSales(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {salesUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="text-sm font-medium block mb-1">Brand Mesin</label>
               <select
@@ -319,6 +323,20 @@ function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Produk + Sumber */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium block mb-1">Produk Diminati <span className="text-red-500">*</span></label>
+              <input
+                value={form.productName}
+                onChange={(e) => setForm({ ...form, productName: e.target.value })}
+                className={`w-full px-3 py-2 border ${err(submitted && !form.productName.trim())} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
+                placeholder="Nama produk / mesin"
+              />
+              {submitted && !form.productName.trim() && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
             </div>
             <div>
               <label className="text-sm font-medium block mb-1">Sumber</label>
@@ -333,16 +351,8 @@ function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
               </select>
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">Produk yang Diminati <span className="text-red-500">*</span></label>
-            <input
-              value={form.productName}
-              onChange={(e) => setForm({ ...form, productName: e.target.value })}
-              className={`w-full px-3 py-2 border ${err(submitted && !form.productName.trim())} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
-              placeholder="Nama produk / mesin"
-            />
-            {submitted && !form.productName.trim() && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
-          </div>
+
+          {/* Estimasi Biaya */}
           <div>
             <label className="text-sm font-medium block mb-1">Estimasi Biaya (Rp) <span className="text-red-500">*</span></label>
             <input
@@ -355,17 +365,34 @@ function LeadForm({ customers, salesUsers, onClose, initial }: LeadFormProps) {
             />
             {submitted && !estimatedCost && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
           </div>
+
+          {/* Alamat */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Alamat</label>
+            <textarea
+              value={alamat}
+              onChange={(e) => setAlamat(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              placeholder="Alamat lengkap customer..."
+            />
+          </div>
+
+          {/* Catatan */}
           <div>
             <label className="text-sm font-medium block mb-1">Catatan</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none h-20"
+              rows={2}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
               placeholder="Catatan follow-up..."
             />
           </div>
         </div>
-        <div className="flex gap-2 mt-4">
+
+        {/* Footer */}
+        <div className="px-5 pb-5 pt-3 shrink-0 border-t border-border flex gap-2">
           <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
           <button onClick={handleSave} disabled={saving} className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-50">
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

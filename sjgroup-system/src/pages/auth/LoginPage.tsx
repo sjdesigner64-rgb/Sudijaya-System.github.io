@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react'
-import { loginWithEmail, getUserProfile } from '@/services/auth.service'
+import { loginWithEmail } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/utils/cn'
 
@@ -31,12 +31,9 @@ export function LoginPage() {
   const onEmailSubmit = async (data: EmailForm) => {
     setLoading(true)
     try {
-      const cred = await loginWithEmail(data.email, data.password)
-      const profile = await getUserProfile(cred.user.uid)
-      if (profile) {
-        setUser(profile)
-        navigate('/', { replace: true })
-      }
+      const user = await loginWithEmail(data.email, data.password)
+      setUser(user)
+      navigate('/', { replace: true })
     } catch {
       setError('email', { message: 'Email atau password salah' })
     } finally {

@@ -3,48 +3,39 @@ import type { User } from '@/types'
 
 interface LoginResponse {
   token: string
-  user: { id: string }
+  user: User
 }
 
-export const loginWithEmail = async (email: string, password: string) => {
+export const loginWithEmail = async (email: string, password: string): Promise<User> => {
   const res = await api.post<LoginResponse>('/auth/login', { email, password })
   localStorage.setItem(TOKEN_KEY, res.data.token)
-  return { user: { uid: res.data.user.id } }
+  return res.data.user
 }
 
-export const getUserProfile = async (userId: string): Promise<User | null> => {
+export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const res = await api.get(`/users/${userId}`)
-    return res.data as User
+    const res = await api.get<User>('/auth/me')
+    return res.data
   } catch {
     return null
   }
 }
 
-export const logoutUser = async () => {
+export const logoutUser = () => {
   localStorage.removeItem(TOKEN_KEY)
 }
 
-interface AuthUser {
-  uid: string
-}
-
-const decodeUserFromToken = (): AuthUser | null => {
+export const hasValidToken = (): boolean => {
   const token = localStorage.getItem(TOKEN_KEY)
-  if (!token) return null
+  if (!token) return false
   try {
-    const payload = JSON.parse(atob(token.split('.')[1])) as { sub: string; exp: number }
+    const payload = JSON.parse(atob(token.split('.')[1])) as { exp: number }
     if (payload.exp * 1000 < Date.now()) {
       localStorage.removeItem(TOKEN_KEY)
-      return null
+      return false
     }
-    return { uid: payload.sub }
+    return true
   } catch {
-    return null
+    return false
   }
-}
-
-export const onAuthChanged = (callback: (user: AuthUser | null) => void) => {
-  callback(decodeUserFromToken())
-  return () => {}
 }
