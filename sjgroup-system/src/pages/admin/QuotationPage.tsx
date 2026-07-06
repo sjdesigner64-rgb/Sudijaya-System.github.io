@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Download, Trash2, Pencil, Upload, Loader2, Search, TrendingUp, RefreshCw, Clock, CheckCircle2, Banknote, SendHorizonal } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
-import type { Quotation, QuotationStatus, QuotationItem, Project, User } from '@/types'
+import type { Quotation, QuotationStatus, User } from '@/types'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { generateQuotationPDF } from '@/utils/pdf'
@@ -31,11 +31,10 @@ const err = (invalid: boolean) =>
 interface QuotationRequestFormProps {
   adminUsers: User[]
   salesUsers: User[]
-  projects: Project[]
   onClose: () => void
 }
 
-function QuotationRequestForm({ adminUsers, salesUsers, projects, onClose }: QuotationRequestFormProps) {
+function QuotationRequestForm({ adminUsers, salesUsers, onClose }: QuotationRequestFormProps) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -46,16 +45,6 @@ function QuotationRequestForm({ adminUsers, salesUsers, projects, onClose }: Quo
   const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10))
   const [deadline, setDeadline] = useState('')
   const [catatan, setCatatan] = useState('')
-  const [projectId, setProjectId] = useState('')
-
-  // Auto-isi customer dari project yang dipilih
-  const selectedProject = projects.find((p) => p.id === projectId)
-  useEffect(() => {
-    if (selectedProject) {
-      setCustomerName(selectedProject.customerName ?? '')
-      setLokasi(selectedProject.alamat ?? '')
-    }
-  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     setSubmitted(true)
@@ -64,8 +53,8 @@ function QuotationRequestForm({ adminUsers, salesUsers, projects, onClose }: Quo
     try {
       const picSalesId = user.role === 'sales' ? user.id : (salesUsers.find((u) => u.id === user.id)?.id ?? salesUsers[0]?.id ?? '')
       const quotationId = await createDoc('quotations', {
-        projectId: projectId || '',
-        customerId: selectedProject?.customerId ?? '',
+        projectId: '',
+        customerId: '',
         requestedBy: user.id,
         createdBy: user.id,
         picSales: picSalesId,
@@ -100,21 +89,6 @@ function QuotationRequestForm({ adminUsers, salesUsers, projects, onClose }: Quo
 
         {/* Body */}
         <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
-
-          {/* Project opsional */}
-          <div>
-            <label className="text-sm font-medium block mb-1">Project (opsional)</label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">— Tanpa project —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} — {p.customerName}</option>
-              ))}
-            </select>
-          </div>
 
           {/* Customer + Mesin */}
           <div className="grid grid-cols-2 gap-3">
@@ -222,18 +196,16 @@ function QuotationRequestForm({ adminUsers, salesUsers, projects, onClose }: Quo
 
 // ─── Form Quotation (Admin) ───────────────────────────────────────────────────
 interface QuotationFormProps {
-  projects: Project[]
   salesUsers: User[]
   adminUsers: User[]
   initial?: Quotation
   onClose: () => void
 }
 
-function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: QuotationFormProps) {
+function QuotationForm({ salesUsers, adminUsers, initial, onClose }: QuotationFormProps) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [projectId, setProjectId] = useState(initial?.projectId ?? projects[0]?.id ?? '')
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '')
   const [machineName, setMachineName] = useState(initial?.machineName ?? '')
   const [picSales, setPicSales] = useState(initial?.picSales ?? salesUsers[0]?.id ?? '')
@@ -246,18 +218,8 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
     initial?.deadline ? format(new Date(initial.deadline), 'yyyy-MM-dd') : ''
   )
   const [status, setStatus] = useState<QuotationStatus>(initial?.status ?? 'diproses')
-  const [items, setItems] = useState<QuotationItem[]>(
-    initial?.items?.length ? initial.items : [{ description: '', qty: 1, unit: 'unit', price: 0 }]
-  )
+  const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? 0)
   const [file, setFile] = useState<File | null>(null)
-
-  const addItem = () => setItems([...items, { description: '', qty: 1, unit: 'unit', price: 0 }])
-  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i))
-  const updateItem = (i: number, field: keyof QuotationItem, value: string | number) =>
-    setItems(items.map((item, idx) => idx === i ? { ...item, [field]: value } : item))
-
-  const total = items.reduce((s, i) => s + i.qty * i.price, 0)
-  const selectedProject = projects.find((p) => p.id === projectId)
 
   const handleSave = async () => {
     setSubmitted(true)
@@ -265,14 +227,14 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
-        projectId: selectedProject?.id ?? '',
-        customerId: selectedProject?.customerId ?? '',
-        requestedBy: selectedProject?.salesPic ?? picSales,
+        projectId: '',
+        customerId: '',
+        requestedBy: picSales,
         createdBy: user.id,
         status,
         deadline: new Date(deadline),
-        items,
-        totalAmount: total,
+        items: [],
+        totalAmount,
         customerName,
         machineName,
         picSales,
@@ -290,7 +252,7 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
         }
         // Jika selesai dan ada picSales, notifikasi sales
         if (status === 'selesai' && picSales && initial.status !== 'selesai') {
-          await notifyQuotationReady(picSales, customerName || selectedProject?.name || '', initial.id)
+          await notifyQuotationReady(picSales, customerName, initial.id)
         }
       } else {
         const quotationId = await createDoc('quotations', payload)
@@ -299,7 +261,7 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
           await updateDocument('quotations', quotationId, { fileUrl: url })
         }
         if (picSales) {
-          await notifyQuotationReady(picSales, customerName || selectedProject?.name || '', quotationId)
+          await notifyQuotationReady(picSales, customerName, quotationId)
         }
       }
       onClose()
@@ -397,15 +359,22 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
               <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={`w-full px-3 py-2 border ${err(submitted && !deadline)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
               {submitted && !deadline && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
             </div>
-            <div className="col-span-2">
-              <label className="text-sm font-medium block mb-1">Project (opsional)</label>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">— Tanpa project —</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} — {p.customerName}</option>
-                ))}
-              </select>
-            </div>
+          </div>
+
+          {/* Total Nilai */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Total Nilai (Rp)</label>
+            <input
+              type="number"
+              min="0"
+              value={totalAmount || ''}
+              onChange={(e) => setTotalAmount(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="0"
+            />
+            {totalAmount > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">{currency(totalAmount)}</p>
+            )}
           </div>
 
           {/* Upload PDF */}
@@ -416,39 +385,6 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
               {file ? file.name : (initial?.fileUrl ? 'Ganti file PDF' : 'Pilih file PDF')}
               <input type="file" accept=".pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </label>
-          </div>
-
-          {/* Items */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Item Penawaran</label>
-              <button onClick={addItem} className="text-xs text-primary hover:underline flex items-center gap-1">
-                <Plus className="h-3 w-3" /> Tambah Baris
-              </button>
-            </div>
-            <div className="space-y-2">
-              <div className="grid grid-cols-12 gap-1 text-xs text-muted-foreground px-1">
-                <span className="col-span-5">Deskripsi</span>
-                <span className="col-span-2">Qty</span>
-                <span className="col-span-2">Satuan</span>
-                <span className="col-span-2">Harga</span>
-                <span className="col-span-1" />
-              </div>
-              {items.map((item, i) => (
-                <div key={i} className="grid grid-cols-12 gap-1">
-                  <input value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} className="col-span-5 px-2 py-1.5 border border-input rounded text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Deskripsi item" />
-                  <input type="number" value={item.qty || ''} onChange={(e) => updateItem(i, 'qty', Number(e.target.value))} className="col-span-2 px-2 py-1.5 border border-input rounded text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
-                  <input value={item.unit} onChange={(e) => updateItem(i, 'unit', e.target.value)} className="col-span-2 px-2 py-1.5 border border-input rounded text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
-                  <input type="number" value={item.price || ''} onChange={(e) => updateItem(i, 'price', Number(e.target.value))} className="col-span-2 px-2 py-1.5 border border-input rounded text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" placeholder="0" />
-                  <button onClick={() => removeItem(i)} className="col-span-1 flex items-center justify-center text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end mt-2 text-sm font-semibold">
-              Total: {currency(total)}
-            </div>
           </div>
         </div>
 
@@ -469,7 +405,6 @@ function QuotationForm({ projects, salesUsers, adminUsers, initial, onClose }: Q
 export function QuotationPage() {
   const { user } = useAuthStore()
   const [quotations, setQuotations] = useState<Quotation[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
   const [salesUsers, setSalesUsers] = useState<User[]>([])
   const [adminUsers, setAdminUsers] = useState<User[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -495,16 +430,13 @@ export function QuotationPage() {
         })) as unknown as Quotation[]
       )
     })
-    const unsubP = subscribeToCollection('projects', [], (docs) => {
-      setProjects(docs as unknown as Project[])
-    })
     const unsubS = subscribeToCollection('users', [where('role', '==', 'sales')], (docs) => {
       setSalesUsers(docs as unknown as User[])
     })
     const unsubA = subscribeToCollection('users', [where('role', '==', 'admin')], (docs) => {
       setAdminUsers(docs as unknown as User[])
     })
-    return () => { unsubQ(); unsubP(); unsubS(); unsubA() }
+    return () => { unsubQ(); unsubS(); unsubA() }
   }, [])
 
   const handleDelete = async () => {
@@ -701,13 +633,12 @@ export function QuotationPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {paginated.map((q) => {
-                const project = projects.find((p) => p.id === q.projectId)
                 const allUsers = [...salesUsers, ...adminUsers]
                 return (
                   <tr key={q.id} className={cn('hover:bg-muted/20', q.isRequest && q.status === 'diproses' && 'bg-amber-50/40 dark:bg-amber-950/20')}>
                     <td className="p-3 font-medium">
                       <div>
-                        {q.customerName || project?.customerName || '-'}
+                        {q.customerName || '-'}
                         {q.isRequest && (
                           <span className="ml-1.5 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 text-[10px] rounded font-medium">
                             Request
@@ -732,7 +663,7 @@ export function QuotationPage() {
                       <div className="flex items-center gap-2">
                         {q.totalAmount > 0 && (
                           <button
-                            onClick={() => generateQuotationPDF(q, q.customerName || project?.customerName || 'Customer')}
+                            onClick={() => generateQuotationPDF(q, q.customerName || 'Customer')}
                             className="flex items-center gap-1 text-xs text-primary hover:underline"
                           >
                             <Download className="h-3 w-3" /> PDF
@@ -773,7 +704,6 @@ export function QuotationPage() {
         <QuotationRequestForm
           adminUsers={adminUsers}
           salesUsers={salesUsers}
-          projects={projects}
           onClose={() => setShowRequestForm(false)}
         />
       )}
@@ -781,7 +711,6 @@ export function QuotationPage() {
       {/* Form buat/edit (Admin) */}
       {(showForm || editTarget) && (
         <QuotationForm
-          projects={projects}
           salesUsers={salesUsers}
           adminUsers={adminUsers}
           initial={editTarget ?? undefined}
