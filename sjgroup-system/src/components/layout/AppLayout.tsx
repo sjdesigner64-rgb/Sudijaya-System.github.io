@@ -3,9 +3,11 @@ import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { ReminderPopup } from '@/components/reminder/ReminderPopup'
+import { SessionTimeoutModal } from '@/components/common/SessionTimeoutModal'
 import { useAuthStore } from '@/store/authStore'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useReminder } from '@/hooks/useReminder'
+import { useSessionTimeout } from '@/hooks/useSessionTimeout'
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -13,6 +15,7 @@ export function AppLayout() {
 
   useNotifications()
   useReminder()
+  const { showWarning, countdown, extendSession, logoutNow } = useSessionTimeout()
 
   useEffect(() => {
     const root = document.documentElement
@@ -30,6 +33,13 @@ export function AppLayout() {
         </main>
       </div>
       <ReminderPopup />
+      {showWarning && (
+        <SessionTimeoutModal
+          countdown={countdown}
+          onExtend={extendSession}
+          onLogout={logoutNow}
+        />
+      )}
     </div>
   )
 }
