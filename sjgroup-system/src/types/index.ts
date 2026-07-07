@@ -298,8 +298,8 @@ export interface Shipment {
   projectName?: string
   leadId?: string
   picSalesId?: string
-  sku: string
-  quantity: number
+  sku?: string
+  quantity?: number
   weight: number
   dimensions: Dimensions
   condition: ItemCondition

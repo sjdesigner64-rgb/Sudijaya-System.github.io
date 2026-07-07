@@ -107,13 +107,11 @@ function SuratJalanCell({ shipment }: { shipment: Shipment }) {
 
 // ─── Dimensi & Detail Fields ──────────────────────────────────────────────────
 function DimensiFields({
-  sku, setSku, quantity, setQuantity, weight, setWeight,
+  weight, setWeight,
   length, setLength, width, setWidth, height, setHeight,
   condition, setCondition, picPengiriman, setPicPengiriman,
   packingNotes, setPackingNotes, picUsers, submitted,
 }: {
-  sku: string; setSku: (v: string) => void
-  quantity: string; setQuantity: (v: string) => void
   weight: string; setWeight: (v: string) => void
   length: string; setLength: (v: string) => void
   width: string; setWidth: (v: string) => void
@@ -126,20 +124,6 @@ function DimensiFields({
 }) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm font-medium block mb-1">SKU / Kode Produk</label>
-          <input value={sku} onChange={(e) => setSku(e.target.value)}
-            className={`w-full px-3 py-2 border ${err(!!submitted && !sku.trim())} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
-            placeholder="Kode produk" />
-          {submitted && !sku.trim() && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1">Jumlah Barang</label>
-          <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)}
-            className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
-        </div>
-      </div>
       <div>
         <label className="text-sm font-medium block mb-1">Berat Barang (kg)</label>
         <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
@@ -195,8 +179,6 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [projectId, setProjectId] = useState(initial?.projectId ?? projects[0]?.id ?? '')
-  const [sku, setSku] = useState(initial?.sku ?? '')
-  const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
   const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
   const [length, setLength] = useState(initial ? String(initial.dimensions?.length ?? 0) : '')
   const [width, setWidth] = useState(initial ? String(initial.dimensions?.width ?? 0) : '')
@@ -222,7 +204,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
 
   const handleSave = async () => {
     setSubmitted(true)
-    if (!sku.trim() || !picPengiriman || !projectId || !jadwal || !user) return
+    if (!picPengiriman || !projectId || !jadwal || !user) return
     if (!initial && !addressPdfFile) return
     setSaving(true)
     try {
@@ -233,7 +215,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
         projectName: selectedProject?.name ?? '',
         leadId: null,
         picSalesId: selectedProject?.salesPic ?? '',
-        sku, quantity: Number(quantity) || 0, weight: Number(weight) || 0,
+        weight: Number(weight) || 0,
         dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
         condition, picPengiriman, packingNotes, status,
         jadwalPengiriman: jadwal ? new Date(jadwal) : null,
@@ -302,7 +284,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
               className={`w-full px-3 py-2 border ${err(submitted && !jadwal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
             {submitted && !jadwal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
           </div>
-          <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
+          <DimensiFields {...{ weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
           <div>
             <PdfField
               label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
@@ -341,8 +323,6 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [leadId, setLeadId] = useState(initial?.leadId ?? leads[0]?.id ?? '')
-  const [sku, setSku] = useState(initial?.sku ?? '')
-  const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
   const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
   const [length, setLength] = useState(initial ? String(initial.dimensions?.length ?? 0) : '')
   const [width, setWidth] = useState(initial ? String(initial.dimensions?.width ?? 0) : '')
@@ -369,19 +349,6 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
 
   const selectedLead = leads.find((l) => l.id === leadId)
 
-  const handleLeadChange = (id: string) => {
-    setLeadId(id)
-    const lead = leads.find((l) => l.id === id)
-    if (lead && !initial) setSku(lead.productName)
-  }
-
-  // Auto-fill SKU on first render if creating new
-  const [skuInitialized, setSkuInitialized] = useState(false)
-  if (!skuInitialized && !initial && selectedLead && !sku) {
-    setSku(selectedLead.productName)
-    setSkuInitialized(true)
-  }
-
   const handleSave = async () => {
     setSubmitted(true)
     if (!leadId || !picPengiriman || !jadwal || !user) return
@@ -393,8 +360,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
         projectName: selectedLead ? `${selectedLead.customerName} — ${selectedLead.productName}` : '',
         leadId,
         picSalesId: selectedLead?.assignedSales ?? '',
-        sku: sku || (selectedLead?.productName ?? ''),
-        quantity: Number(quantity) || 0, weight: Number(weight) || 0,
+        weight: Number(weight) || 0,
         dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
         condition, picPengiriman, packingNotes, status,
         jadwalPengiriman: jadwal ? new Date(jadwal) : null,
@@ -433,7 +399,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
         <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Project Satuan <span className="text-red-500">*</span></label>
-            <select value={leadId} onChange={(e) => handleLeadChange(e.target.value)}
+            <select value={leadId} onChange={(e) => setLeadId(e.target.value)}
               className={`w-full px-3 py-2 border ${err(submitted && !leadId)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
               <option value="">— Pilih Project Satuan —</option>
               {leads.map((l) => (<option key={l.id} value={l.id}>{l.customerName} — {l.productName}</option>))}
@@ -453,7 +419,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
               className={`w-full px-3 py-2 border ${err(submitted && !jadwal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
             {submitted && !jadwal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
           </div>
-          <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
+          <DimensiFields {...{ weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
           <div>
             <PdfField
               label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
@@ -589,11 +555,11 @@ function ShipmentTable({
   const canEdit = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
   const canDelete = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
 
-  const colSpan = showPicSales ? 14 : 13
+  const colSpan = showPicSales ? 12 : 11
 
   const filtered = shipments.filter((s) => {
     const q = search.toLowerCase()
-    const matchSearch = (s.projectName ?? '').toLowerCase().includes(q) || (s.sku ?? '').toLowerCase().includes(q)
+    const matchSearch = (s.projectName ?? '').toLowerCase().includes(q)
     const matchCondition = filterCondition === 'all' || s.condition === filterCondition
     const matchStatus = filterStatus === 'all' || (s.status ?? 'pending') === filterStatus
     return matchSearch && matchCondition && matchStatus
@@ -639,7 +605,7 @@ function ShipmentTable({
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Cari nama project atau SKU..."
+            placeholder="Cari nama project..."
             className="w-full pl-9 pr-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <select value={filterCondition} onChange={(e) => { setFilterCondition(e.target.value as ItemCondition | 'all'); setPage(1) }}
@@ -656,8 +622,6 @@ function ShipmentTable({
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">{labelKolom}</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Jadwal Kirim</th>
-                <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">SKU</th>
-                <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Jumlah</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Berat</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Dimensi (cm)</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Kondisi</th>
@@ -685,8 +649,6 @@ function ShipmentTable({
                         ? <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{format(toDate(s.jadwalPengiriman as never) ?? new Date(s.jadwalPengiriman as unknown as string), 'd MMM yyyy', { locale: localeId })}</span>
                         : <span className="italic">Belum dijadwal</span>}
                     </td>
-                    <td className="p-3 text-muted-foreground whitespace-nowrap">{s.sku}</td>
-                    <td className="p-3 whitespace-nowrap">{s.quantity}</td>
                     <td className="p-3 text-muted-foreground whitespace-nowrap">{s.weight} kg</td>
                     <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">
                       {dims.length}×{dims.width}×{dims.height} cm
