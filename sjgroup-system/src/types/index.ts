@@ -306,6 +306,7 @@ export interface Shipment {
   address?: string
   addressPdfUrl?: string
   suratJalanUrl?: string
+  jadwalPengiriman?: Date
   picPengiriman: string
   packingNotes?: string
   status: ShipmentStatus

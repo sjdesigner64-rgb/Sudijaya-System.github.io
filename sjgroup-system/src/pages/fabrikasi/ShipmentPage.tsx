@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Loader2, Search, FileText, Upload, ExternalLink, Clock, Truck, CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
+import { Plus, Trash2, Loader2, Search, FileText, Upload, ExternalLink, Clock, Truck, CheckCircle2, AlertTriangle, Pencil, CalendarDays } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { toDate } from '@/utils/firestore'
 import type { Shipment, ShipmentStatus, ItemCondition, Project, User, Lead } from '@/types'
+import { format } from 'date-fns'
+import { id as localeId } from 'date-fns/locale'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, getDocuments, where } from '@/services/firestore.service'
 import { uploadFile, buildPath } from '@/services/storage.service'
@@ -202,6 +205,11 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
   const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
   const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
   const [status, setStatus] = useState<ShipmentStatus>(initial?.status ?? 'pending')
+  const [jadwal, setJadwal] = useState(
+    initial?.jadwalPengiriman
+      ? format(toDate(initial.jadwalPengiriman as never) ?? new Date(), 'yyyy-MM-dd')
+      : ''
+  )
   const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
   const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
 
@@ -214,7 +222,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
 
   const handleSave = async () => {
     setSubmitted(true)
-    if (!sku.trim() || !picPengiriman || !projectId || !user) return
+    if (!sku.trim() || !picPengiriman || !projectId || !jadwal || !user) return
     if (!initial && !addressPdfFile) return
     setSaving(true)
     try {
@@ -228,6 +236,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
         sku, quantity: Number(quantity) || 0, weight: Number(weight) || 0,
         dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
         condition, picPengiriman, packingNotes, status,
+        jadwalPengiriman: jadwal ? new Date(jadwal) : null,
       }
       let docId = initial?.id ?? ''
       if (initial) {
@@ -285,6 +294,14 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
             </select>
             {submitted && !projectId && <p className="text-xs text-red-500 mt-0.5">Wajib pilih project</p>}
           </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">
+              <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Jadwal Pengiriman <span className="text-red-500">*</span></span>
+            </label>
+            <input type="date" value={jadwal} onChange={(e) => setJadwal(e.target.value)}
+              className={`w-full px-3 py-2 border ${err(submitted && !jadwal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
+            {submitted && !jadwal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
+          </div>
           <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
           <div>
             <PdfField
@@ -334,6 +351,11 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
   const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
   const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
   const [status, setStatus] = useState<ShipmentStatus>(initial?.status ?? 'pending')
+  const [jadwal, setJadwal] = useState(
+    initial?.jadwalPengiriman
+      ? format(toDate(initial.jadwalPengiriman as never) ?? new Date(), 'yyyy-MM-dd')
+      : ''
+  )
   const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
   const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
 
@@ -362,7 +384,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
 
   const handleSave = async () => {
     setSubmitted(true)
-    if (!leadId || !picPengiriman || !user) return
+    if (!leadId || !picPengiriman || !jadwal || !user) return
     if (!initial && !addressPdfFile) return
     setSaving(true)
     try {
@@ -375,6 +397,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
         quantity: Number(quantity) || 0, weight: Number(weight) || 0,
         dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
         condition, picPengiriman, packingNotes, status,
+        jadwalPengiriman: jadwal ? new Date(jadwal) : null,
       }
       let docId = initial?.id ?? ''
       if (initial) {
@@ -421,6 +444,14 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
                 Pembayaran: {selectedLead.dpPelunasan === 'sudah_lunas' ? '✓ Sudah Lunas' : selectedLead.dpPelunasan === 'sudah_dp' ? 'Sudah DP' : 'Belum DP'}
               </p>
             )}
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">
+              <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Jadwal Pengiriman <span className="text-red-500">*</span></span>
+            </label>
+            <input type="date" value={jadwal} onChange={(e) => setJadwal(e.target.value)}
+              className={`w-full px-3 py-2 border ${err(submitted && !jadwal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
+            {submitted && !jadwal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
           </div>
           <DimensiFields {...{ sku, setSku, quantity, setQuantity, weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
           <div>
@@ -558,7 +589,7 @@ function ShipmentTable({
   const canEdit = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
   const canDelete = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
 
-  const colSpan = showPicSales ? 13 : 12
+  const colSpan = showPicSales ? 14 : 13
 
   const filtered = shipments.filter((s) => {
     const q = search.toLowerCase()
@@ -624,6 +655,7 @@ function ShipmentTable({
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">{labelKolom}</th>
+                <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Jadwal Kirim</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">SKU</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Jumlah</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Berat</th>
@@ -648,6 +680,11 @@ function ShipmentTable({
                 return (
                   <tr key={s.id} className="hover:bg-muted/20">
                     <td className="p-3 font-medium whitespace-nowrap max-w-[200px] truncate">{s.projectName}</td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap text-xs">
+                      {s.jadwalPengiriman
+                        ? <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{format(toDate(s.jadwalPengiriman as never) ?? new Date(s.jadwalPengiriman as unknown as string), 'd MMM yyyy', { locale: localeId })}</span>
+                        : <span className="italic">Belum dijadwal</span>}
+                    </td>
                     <td className="p-3 text-muted-foreground whitespace-nowrap">{s.sku}</td>
                     <td className="p-3 whitespace-nowrap">{s.quantity}</td>
                     <td className="p-3 text-muted-foreground whitespace-nowrap">{s.weight} kg</td>
@@ -742,8 +779,8 @@ export function ShipmentPage() {
     return () => { unsubS(); unsubP(); unsubL(); unsubU() }
   }, [])
 
-  // PIC Pengiriman = semua user kecuali sales & media
-  const picUsers = allUsers.filter((u) => !['sales', 'media'].includes(u.role))
+  // PIC Pengiriman = hanya role fabrikasi
+  const picUsers = allUsers.filter((u) => u.role === 'fabrikasi')
 
   const handleDelete = async () => {
     if (!deleteTarget) return
