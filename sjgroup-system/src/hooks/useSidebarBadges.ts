@@ -94,6 +94,48 @@ export const useSidebarBadges = (): BadgeCounts => {
       )
     }
 
+    // Quotation — request dari sales (isRequest=true & status='diproses') yang belum diproses admin
+    if (['super_admin', 'admin', 'sales'].includes(role)) {
+      unsubs.push(
+        subscribeToCollection('quotations', [], (docs) => {
+          const n = docs.filter((d) => {
+            if (!d.isRequest || d.status !== 'diproses') return false
+            // sales: hanya request milik sendiri; admin: semua request
+            if (role === 'sales') return d.requestedBy === userId || d.createdBy === userId
+            return true
+          }).length
+          set('/quotation', n)
+        })
+      )
+    }
+
+    // Invoice — request dari sales (isRequest=true & belum ada invoiceNumber)
+    if (['super_admin', 'admin', 'sales'].includes(role)) {
+      unsubs.push(
+        subscribeToCollection('invoices', [], (docs) => {
+          const n = docs.filter((d) => {
+            if (!d.isRequest || d.invoiceNumber) return false
+            if (role === 'sales') return d.createdBy === userId || d.picSales === userId
+            return true
+          }).length
+          set('/invoice', n)
+        })
+      )
+    }
+
+    // Payment Tracking — project sales dengan pembayaran yang masih pending
+    if (['super_admin', 'admin'].includes(role)) {
+      unsubs.push(
+        subscribeToCollection('projects', [], (docs) => {
+          const n = docs.filter((d) => {
+            const payments = d.payments as { status: string }[] | undefined
+            return Array.isArray(payments) && payments.some((p) => p.status === 'pending')
+          }).length
+          set('/payment', n)
+        })
+      )
+    }
+
     return () => unsubs.forEach((u) => u())
   }, [user])
 
