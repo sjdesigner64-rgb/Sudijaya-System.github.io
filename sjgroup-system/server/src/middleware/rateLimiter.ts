@@ -13,7 +13,7 @@ export const apiLimiter = rateLimit({
 // Rate limiter ketat: login (cegah brute force)
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 10, // max 10 percobaan login per IP per 15 menit
+  max: 20, // max 20 percobaan login per IP per 15 menit
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' },

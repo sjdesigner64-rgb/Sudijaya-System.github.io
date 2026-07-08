@@ -94,10 +94,18 @@ const archiveClosedLeads = async () => {
   }
 }
 
+const safeJob = (name: string, fn: () => Promise<void>) => async () => {
+  try {
+    await fn()
+  } catch (err) {
+    console.error(`[CRON ERROR] ${name}:`, (err as Error).message)
+  }
+}
+
 export const startJobs = () => {
-  cron.schedule('0 9,13,17 * * *', sendDailyReminder, { timezone: 'Asia/Jakarta' })
-  cron.schedule('0 8 * * *', sendWarrantyAlert, { timezone: 'Asia/Jakarta' })
-  cron.schedule('0 7 * * *', sendProductionAlert, { timezone: 'Asia/Jakarta' })
-  cron.schedule('0 0 * * 0', archiveClosedLeads, { timezone: 'Asia/Jakarta' })
+  cron.schedule('0 9,13,17 * * *', safeJob('sendDailyReminder', sendDailyReminder), { timezone: 'Asia/Jakarta' })
+  cron.schedule('0 8 * * *',       safeJob('sendWarrantyAlert', sendWarrantyAlert),  { timezone: 'Asia/Jakarta' })
+  cron.schedule('0 7 * * *',       safeJob('sendProductionAlert', sendProductionAlert), { timezone: 'Asia/Jakarta' })
+  cron.schedule('0 0 * * 0',       safeJob('archiveClosedLeads', archiveClosedLeads), { timezone: 'Asia/Jakarta' })
   console.log('Cron jobs started: sendDailyReminder, sendWarrantyAlert, sendProductionAlert, archiveClosedLeads')
 }

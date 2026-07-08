@@ -1,4 +1,13 @@
 import 'dotenv/config'
+
+// ── Cegah crash dari unhandled rejection / uncaught exception ─────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err.message, err.stack)
+})
+
 import express, { NextFunction, Request, Response } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
