@@ -83,17 +83,26 @@ router.put('/:id', async (req, res, next: NextFunction) => {
       await advanceProjectStage(doc.projectId, 'instalasi')
       const existingInstall = await prisma.installation.findFirst({ where: { projectId: doc.projectId } })
       if (!existingInstall) {
-        const project = await prisma.project.findUnique({ where: { id: doc.projectId } })
+        const [project, gantt] = await Promise.all([
+          prisma.project.findUnique({ where: { id: doc.projectId } }),
+          prisma.productionGantt.findFirst({
+            where: { projectId: doc.projectId },
+            include: { tasks: true },
+          }),
+        ])
+        const installasiTask = gantt?.tasks.find((t) => t.taskName === 'instalasi')
         const now = new Date()
+        const installationDate = installasiTask?.startDate ?? now
+        const deadline = installasiTask?.deadline ?? new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
         await prisma.installation.create({
           data: {
             projectId: doc.projectId,
             projectName: project?.name ?? (doc.projectName ?? ''),
             customerName: project?.customerName ?? '',
             picInstalasi: '',
-            installationDate: now,
+            installationDate,
             estimatedDuration: '',
-            deadline: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+            deadline,
             lokasi: project?.alamat ?? '',
             notes: '',
             status: 'pending',
