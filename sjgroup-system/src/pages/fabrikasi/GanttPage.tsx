@@ -499,6 +499,7 @@ export function GanttPage() {
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left p-3 font-medium text-muted-foreground">Nama Project</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Nama Customer</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">PIC Sales</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Deadline</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
@@ -509,6 +510,7 @@ export function GanttPage() {
               {paginatedGantts.map((g) => (
                 <tr key={g.id} className="hover:bg-muted/20">
                   <td className="p-3 font-medium">{g.projectName}</td>
+                  <td className="p-3 text-muted-foreground text-xs">{projects.find((p) => p.id === g.projectId)?.customerName ?? '-'}</td>
                   <td className="p-3 text-muted-foreground text-xs">{salesUsers.find((u) => u.id === g.salesPic)?.name ?? '-'}</td>
                   <td className="p-3 text-muted-foreground text-xs">{format(g.overallDeadline, 'd MMM yyyy', { locale: localeId })}</td>
                   <td className="p-3"><span className={cn('px-2 py-0.5 text-xs rounded-full', STATUS_COLORS[g.status])}>{STATUS_LABELS[g.status]}</span></td>
@@ -535,7 +537,7 @@ export function GanttPage() {
                 </tr>
               ))}
               {filteredGantts.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Belum ada project fabrikasi</td></tr>
+                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Belum ada project fabrikasi</td></tr>
               )}
             </tbody>
           </table>
