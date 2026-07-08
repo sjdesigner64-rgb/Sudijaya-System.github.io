@@ -69,12 +69,41 @@ router.post('/', async (req, res, next: NextFunction) => {
 
 router.put('/:id', async (req, res, next: NextFunction) => {
   try {
+    const existing = await prisma.shipment.findUnique({ where: { id: req.params.id } })
+
     const doc = await prisma.shipment.update({
       where: { id: req.params.id },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: coerceBody(req.body) as any,
     })
     emitChange('shipments')
+
+    // Auto-create installation ketika project sales shipment status → 'selesai'
+    if (doc.status === 'selesai' && existing?.status !== 'selesai' && !doc.leadId && doc.projectId) {
+      await advanceProjectStage(doc.projectId, 'instalasi')
+      const existingInstall = await prisma.installation.findFirst({ where: { projectId: doc.projectId } })
+      if (!existingInstall) {
+        const project = await prisma.project.findUnique({ where: { id: doc.projectId } })
+        const now = new Date()
+        await prisma.installation.create({
+          data: {
+            projectId: doc.projectId,
+            projectName: project?.name ?? (doc.projectName ?? ''),
+            customerName: project?.customerName ?? '',
+            picInstalasi: '',
+            installationDate: now,
+            estimatedDuration: '',
+            deadline: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+            lokasi: project?.alamat ?? '',
+            notes: '',
+            status: 'pending',
+            createdBy: req.user!.id,
+          },
+        })
+        emitChange('installations')
+      }
+    }
+
     res.json(doc)
   } catch (err) { next(err) }
 })

@@ -6,7 +6,7 @@ import type { Shipment, ShipmentStatus, ItemCondition, Project, User, Lead } fro
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { useAuthStore } from '@/store/authStore'
-import { createDoc, updateDocument, deleteDocument, subscribeToCollection, getDocuments, where } from '@/services/firestore.service'
+import { createDoc, updateDocument, deleteDocument, subscribeToCollection } from '@/services/firestore.service'
 import { uploadFile, buildPath } from '@/services/storage.service'
 import { Pagination } from '@/components/common/Pagination'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
@@ -365,18 +365,7 @@ function FabrikasiShipmentEditForm({ initial, projects, leads, adminIds, onClose
         } else {
           const project = projects.find((p) => p.id === initial.projectId)
           if (project) {
-            await updateDocument('projects', project.id, { pipelineStage: 'instalasi' })
-            const existingInstall = await getDocuments('installations', [where('projectId', '==', project.id)])
-            if (existingInstall.length === 0) {
-              await createDoc('installations', {
-                projectId: project.id, projectName: project.name,
-                customerName: project.customerName ?? '', picInstalasi: '',
-                installationDate: new Date(), estimatedDuration: '',
-                deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-                lokasi: project.alamat ?? '', notes: '', status: 'pending',
-                createdBy: user?.id ?? '',
-              })
-            }
+            // Installation auto-create ditangani backend (shipments PUT route)
             await notifyPengirimSalesSelesai(project.salesPic, adminIds, project.name, project.id)
           }
         }
@@ -473,18 +462,7 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
         } else {
           const project = projects.find((p) => p.id === shipment.projectId)
           if (project) {
-            await updateDocument('projects', project.id, { pipelineStage: 'instalasi' })
-            const existingInstall = await getDocuments('installations', [where('projectId', '==', project.id)])
-            if (existingInstall.length === 0) {
-              await createDoc('installations', {
-                projectId: project.id, projectName: project.name,
-                customerName: project.customerName ?? '', picInstalasi: '',
-                installationDate: new Date(), estimatedDuration: '',
-                deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-                lokasi: project.alamat ?? '', notes: '', status: 'pending',
-                createdBy: user?.id ?? '',
-              })
-            }
+            // Installation auto-create ditangani backend (shipments PUT route)
             await notifyPengirimSalesSelesai(project.salesPic, adminIds, project.name, project.id)
           }
         }
