@@ -255,7 +255,7 @@ export function BomRequestPage() {
             Sales / Admin request → Fabrikasi upload PDF → Admin download &amp; konfirmasi
           </p>
         </div>
-        {(isSales || isAdmin) && (
+        {isSales && (
           <button
             onClick={() => { setEditBom(undefined); setShowForm(true) }}
             className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
@@ -399,8 +399,8 @@ export function BomRequestPage() {
                             Selesai
                           </button>
                         )}
-                        {/* Edit: admin & sales (pemilik request) saat belum done */}
-                        {(isAdmin || (bom.status !== 'done' && isSales && bom.requestedBy === user?.id)) && (
+                        {/* Edit: sales pemilik request saat belum done */}
+                        {(bom.status !== 'done' && isSales && bom.requestedBy === user?.id) && (
                           <button
                             onClick={() => { setEditBom(bom); setShowForm(true) }}
                             className="p-1 text-muted-foreground hover:text-foreground"

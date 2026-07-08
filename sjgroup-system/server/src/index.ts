@@ -34,6 +34,7 @@ import mediaAssetsRoutes from './routes/mediaAssets.routes'
 import contentDataRoutes from './routes/contentData.routes'
 import tasksRoutes from './routes/tasks.routes'
 import uploadRoutes from './routes/upload.routes'
+import bomRequestsRoutes from './routes/bomRequests.routes'
 
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
@@ -90,7 +91,7 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/customers',      createCrudRouter(prisma.customer,      'customers'))
 app.use('/api/quotations',     createCrudRouter(prisma.quotation,     'quotations'))
 app.use('/api/invoices',       createCrudRouter(prisma.invoice,       'invoices'))
-app.use('/api/requests_bom',   createCrudRouter(prisma.bomRequest,    'requests_bom'))
+app.use('/api/requests_bom',   bomRequestsRoutes)
 app.use('/api/warehouse_stock',createCrudRouter(prisma.warehouseStock,'warehouse_stock'))
 app.use('/api/meetings',       createCrudRouter(prisma.meeting,       'meetings'))
 app.use('/api/notifications',  createCrudRouter(prisma.notification,  'notifications'))
