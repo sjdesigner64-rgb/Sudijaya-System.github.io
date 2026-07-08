@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Loader2, Trash2, Check, ExternalLink, Search, ArrowRight, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
+import { Plus, Loader2, Trash2, Check, ExternalLink, Search, ArrowRight, ChevronDown, ChevronUp, Pencil, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -234,9 +234,10 @@ function TrackModal({ project, onClose }: TrackModalProps) {
   const [noteContent, setNoteContent] = useState('')
   const [savingNote, setSavingNote]   = useState(false)
 
-  const currentIdx = STAGES.indexOf(project.pipelineStage)
+  const currentIdx  = STAGES.indexOf(project.pipelineStage)
   const nextStage   = STAGES[currentIdx + 1] as PipelineStage | undefined
   const isLastStage = currentIdx === STAGES.length - 1
+  const isCompleted = project.status === 'completed'
 
   const setStage = async (stage: PipelineStage) => {
     if (stage === project.pipelineStage) return
@@ -245,7 +246,6 @@ function TrackModal({ project, onClose }: TrackModalProps) {
     try {
       await updateDocument('projects', project.id, { pipelineStage: stage })
 
-      // Saat stage masuk 'instalasi', auto-create Installation jika belum ada
       if (stage === 'instalasi') {
         const existing = await getDocuments('installations', [where('projectId', '==', project.id)])
         if (existing.length === 0) {
@@ -266,6 +266,17 @@ function TrackModal({ project, onClose }: TrackModalProps) {
       }
 
       setSavedStage(stage)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const markCompleted = async () => {
+    setUpdating(true)
+    setSavedStage(null)
+    try {
+      await updateDocument('projects', project.id, { status: 'completed' })
+      setSavedStage(project.pipelineStage)
     } finally {
       setUpdating(false)
     }
@@ -293,6 +304,17 @@ function TrackModal({ project, onClose }: TrackModalProps) {
           <h3 className="font-semibold">{project.name}</h3>
           <p className="text-sm text-muted-foreground">{project.customerName}</p>
         </div>
+
+        {/* Banner Project Selesai */}
+        {isCompleted && (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-300 dark:border-green-700">
+            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+            <div>
+              <p className="font-semibold text-green-700 dark:text-green-400 text-sm">Project Selesai</p>
+              <p className="text-xs text-green-600/80 dark:text-green-500">Seluruh tahap termasuk instalasi telah selesai</p>
+            </div>
+          </div>
+        )}
 
         {/* Current stage highlight */}
         <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
@@ -329,6 +351,20 @@ function TrackModal({ project, onClose }: TrackModalProps) {
                 <ArrowRight className="h-4 w-4 ml-1" />
               </>
             )}
+          </button>
+        )}
+
+        {/* Tombol Tandai Selesai — muncul di tahap instalasi sebelum completed */}
+        {isLastStage && !isCompleted && (
+          <button
+            onClick={markCompleted}
+            disabled={updating}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-sm disabled:opacity-50 transition-colors"
+          >
+            {updating
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <><CheckCircle2 className="h-4 w-4" /> Tandai Project Selesai</>
+            }
           </button>
         )}
 
@@ -397,14 +433,14 @@ function TrackModal({ project, onClose }: TrackModalProps) {
                 >
                   <span className={cn(
                     'w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-semibold',
-                    idx < currentIdx ? 'bg-green-500 text-white' :
+                    idx < currentIdx || isCompleted ? 'bg-green-500 text-white' :
                     idx === currentIdx ? 'bg-primary text-primary-foreground' :
                     'border border-border bg-background'
                   )}>
-                    {idx < currentIdx ? <Check className="h-3 w-3" /> : idx + 1}
+                    {idx < currentIdx || isCompleted ? <Check className="h-3 w-3" /> : idx + 1}
                   </span>
                   <span className="flex-1">{STAGE_LABELS[stage]}</span>
-                  {stage === project.pipelineStage && (
+                  {stage === project.pipelineStage && !isCompleted && (
                     <span className="text-[10px] text-primary font-medium">Saat ini</span>
                   )}
                   {AUTO_STAGES.includes(stage) && stage !== project.pipelineStage && (
@@ -412,6 +448,24 @@ function TrackModal({ project, onClose }: TrackModalProps) {
                   )}
                 </button>
               ))}
+              {/* Entry Selesai — final state setelah semua tahap */}
+              <div className={cn(
+                'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm',
+                isCompleted
+                  ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400'
+                  : 'text-muted-foreground opacity-40 cursor-not-allowed'
+              )}>
+                <span className={cn(
+                  'w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-semibold',
+                  isCompleted ? 'bg-green-500 text-white' : 'border border-border bg-background'
+                )}>
+                  {isCompleted ? <Check className="h-3 w-3" /> : STAGES.length + 1}
+                </span>
+                <span className="flex-1 font-medium">Selesai</span>
+                {isCompleted && (
+                  <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">✓ Selesai</span>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -555,7 +609,17 @@ export function PipelinePage() {
                   <td className="p-3 text-muted-foreground text-xs">{salesUsers.find((u) => u.id === item.salesPic)?.name ?? '-'}</td>
                   <td className="p-3"><span className="px-2 py-0.5 bg-secondary text-secondary-foreground text-xs rounded">{item.category}</span></td>
                   <td className="p-3 font-semibold">{currency(item.estimatedValue)}</td>
-                  <td className="p-3"><span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-full whitespace-nowrap">{STAGE_LABELS[item.pipelineStage]}</span></td>
+                  <td className="p-3">
+                    {item.status === 'completed' ? (
+                      <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs rounded-full whitespace-nowrap font-medium">
+                        ✓ Selesai
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-full whitespace-nowrap">
+                        {STAGE_LABELS[item.pipelineStage]}
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <div className="flex items-center gap-3">
                       <button onClick={() => setTrackProject(item)} className="text-xs text-primary hover:underline">Track</button>
