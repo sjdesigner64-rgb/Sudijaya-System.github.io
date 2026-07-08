@@ -91,6 +91,15 @@ function InstallationForm({ projects, fabrikasiUsers, initial, onClose }: Instal
       } else {
         await createDoc('installations', { ...data, createdBy: user.id })
       }
+
+      // Saat selesai → tandai project terkait sebagai completed
+      if (status === 'selesai') {
+        const project = projects.find((p) => p.id === projectId)
+        if (project) {
+          await updateDocument('projects', project.id, { status: 'completed' })
+        }
+      }
+
       onClose()
     } finally {
       setSaving(false)
@@ -196,7 +205,7 @@ function InstallationForm({ projects, fabrikasiUsers, initial, onClose }: Instal
 }
 
 // ─── Inline status select ──────────────────────────────────────────────────────
-function InlineStatusSelect({ installation }: { installation: Installation }) {
+function InlineStatusSelect({ installation, projects }: { installation: Installation; projects: Project[] }) {
   const [saving, setSaving] = useState(false)
   const current = installation.status as InstallationStatus
 
@@ -205,6 +214,14 @@ function InlineStatusSelect({ installation }: { installation: Installation }) {
     setSaving(true)
     try {
       await updateDocument('installations', installation.id, { status: newStatus })
+
+      // Saat selesai → tandai project terkait sebagai completed
+      if (newStatus === 'selesai') {
+        const project = projects.find((p) => p.id === installation.projectId)
+        if (project) {
+          await updateDocument('projects', project.id, { status: 'completed' })
+        }
+      }
     } finally {
       setSaving(false)
     }
@@ -493,7 +510,7 @@ export function InstallationPage() {
                     </td>
                     <td className="p-3">
                       {(isAdmin || i.picInstalasi === user?.id) ? (
-                        <InlineStatusSelect installation={i} />
+                        <InlineStatusSelect installation={i} projects={projects} />
                       ) : (
                         <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', STATUS_COLORS[i.status])}>
                           {STATUS_LABELS[i.status]}
