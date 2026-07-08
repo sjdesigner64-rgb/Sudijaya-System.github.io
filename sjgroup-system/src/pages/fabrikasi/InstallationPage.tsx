@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Loader2, Search, MapPin, CalendarDays, AlertTriangle, CheckCircle2, Clock, ChevronDown, Pencil } from 'lucide-react'
+import { Plus, Trash2, Loader2, Search, MapPin, CalendarDays, AlertTriangle, CheckCircle2, Clock, Pencil } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { format, differenceInDays } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -195,40 +195,38 @@ function InstallationForm({ projects, fabrikasiUsers, initial, onClose }: Instal
   )
 }
 
-// ─── Quick status dropdown ─────────────────────────────────────────────────────
-function StatusDropdown({ installation, onClose }: { installation: Installation; onClose: () => void }) {
+// ─── Inline status select ──────────────────────────────────────────────────────
+function InlineStatusSelect({ installation }: { installation: Installation }) {
   const [saving, setSaving] = useState(false)
+  const current = installation.status as InstallationStatus
 
-  const change = async (s: InstallationStatus) => {
-    if (s === installation.status) { onClose(); return }
+  const handleChange = async (newStatus: InstallationStatus) => {
+    if (newStatus === current) return
     setSaving(true)
     try {
-      await updateDocument('installations', installation.id, { status: s })
-      onClose()
+      await updateDocument('installations', installation.id, { status: newStatus })
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-card border border-border rounded-xl shadow-lg overflow-hidden py-1">
-      {saving ? (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        (Object.entries(STATUS_LABELS) as [InstallationStatus, string][]).map(([k, v]) => (
-          <button key={k} onClick={() => change(k)}
-            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center gap-2',
-              k === installation.status && 'bg-muted/30 font-medium')}>
-            <span className={cn('inline-block w-2 h-2 rounded-full',
-              k === 'pending' ? 'bg-gray-400' : k === 'dijadwalkan' ? 'bg-blue-500' :
-              k === 'reschedule' ? 'bg-amber-500' : 'bg-green-500')} />
-            {v}
-            {k === installation.status && <span className="ml-auto text-[10px] text-muted-foreground">aktif</span>}
-          </button>
-        ))
-      )}
+    <div className="flex items-center gap-1">
+      {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+      <select
+        value={current}
+        disabled={saving}
+        onChange={(e) => handleChange(e.target.value as InstallationStatus)}
+        className={cn(
+          'px-2 py-0.5 text-xs rounded-full border border-transparent cursor-pointer',
+          'focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed',
+          STATUS_COLORS[current]
+        )}
+      >
+        {(Object.entries(STATUS_LABELS) as [InstallationStatus, string][]).map(([k, v]) => (
+          <option key={k} value={k}>{v}</option>
+        ))}
+      </select>
     </div>
   )
 }
@@ -273,7 +271,6 @@ export function InstallationPage() {
   const [page, setPage]                             = useState(1)
   const [deleteTarget, setDeleteTarget]             = useState<Installation | null>(null)
   const [deleting, setDeleting]                     = useState(false)
-  const [statusDropdownId, setStatusDropdownId]     = useState<string | null>(null)
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
@@ -298,14 +295,6 @@ export function InstallationPage() {
     ]
     return () => uns.forEach((u) => u())
   }, [])
-
-  // Close status dropdown on outside click
-  useEffect(() => {
-    if (!statusDropdownId) return
-    const handler = () => setStatusDropdownId(null)
-    document.addEventListener('click', handler)
-    return () => document.removeEventListener('click', handler)
-  }, [statusDropdownId])
 
   const picName   = (id: string) => fabrikasiUsers.find((u) => u.id === id)?.name ?? (id ? 'Unknown' : '— Belum diisi —')
   const salesName = (installationId: string) => {
@@ -503,36 +492,13 @@ export function InstallationPage() {
                       </div>
                     </td>
                     <td className="p-3">
-                      {/* Status badge — clickable hanya untuk admin atau PIC bersangkutan */}
-                      {(() => {
-                        const canChange = isAdmin || i.picInstalasi === user?.id
-                        return (
-                          <div className="relative" onClick={(e) => e.stopPropagation()}>
-                            {canChange ? (
-                              <button
-                                onClick={() => setStatusDropdownId(statusDropdownId === i.id ? null : i.id)}
-                                className={cn(
-                                  'flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap transition-opacity hover:opacity-80',
-                                  STATUS_COLORS[i.status]
-                                )}
-                              >
-                                {STATUS_LABELS[i.status]}
-                                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                              </button>
-                            ) : (
-                              <span className={cn('px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap', STATUS_COLORS[i.status])}>
-                                {STATUS_LABELS[i.status]}
-                              </span>
-                            )}
-                            {statusDropdownId === i.id && (
-                              <StatusDropdown
-                                installation={i}
-                                onClose={() => setStatusDropdownId(null)}
-                              />
-                            )}
-                          </div>
-                        )
-                      })()}
+                      {(isAdmin || i.picInstalasi === user?.id) ? (
+                        <InlineStatusSelect installation={i} />
+                      ) : (
+                        <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', STATUS_COLORS[i.status])}>
+                          {STATUS_LABELS[i.status]}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3">
                       <div className="flex items-center gap-2 whitespace-nowrap">
