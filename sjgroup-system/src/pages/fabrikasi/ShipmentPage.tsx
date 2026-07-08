@@ -20,7 +20,6 @@ const STATUS_COLORS: Record<ShipmentStatus, string> = {
   proses: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
   selesai: 'bg-green-100 dark:bg-green-900 text-green-700',
 }
-
 const CONDITION_LABELS: Record<ItemCondition, string> = {
   baru: 'Baru', bekas: 'Bekas', servis: 'Servis', retur: 'Retur',
 }
@@ -30,18 +29,11 @@ const CONDITION_COLORS: Record<ItemCondition, string> = {
   servis: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
   retur: 'bg-red-100 dark:bg-red-900 text-red-700',
 }
-
-const err = (invalid: boolean) =>
-  invalid ? 'border-red-400 dark:border-red-600' : 'border-input'
+const err = (invalid: boolean) => invalid ? 'border-red-400 dark:border-red-600' : 'border-input'
 
 // ─── PDF Field ─────────────────────────────────────────────────────────────────
-function PdfField({
-  label, currentUrl, file, onFileChange,
-}: {
-  label: React.ReactNode
-  currentUrl?: string
-  file: File | null
-  onFileChange: (f: File | null) => void
+function PdfField({ label, currentUrl, file, onFileChange }: {
+  label: React.ReactNode; currentUrl?: string; file: File | null; onFileChange: (f: File | null) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   return (
@@ -73,11 +65,10 @@ function PdfField({
   )
 }
 
-// ─── Surat Jalan Cell ──────────────────────────────────────────────────────────
+// ─── Surat Jalan Cell (inline upload di tabel) ─────────────────────────────────
 function SuratJalanCell({ shipment }: { shipment: Shipment }) {
   const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-
   const handleUpload = async (file: File) => {
     setUploading(true)
     try {
@@ -85,7 +76,6 @@ function SuratJalanCell({ shipment }: { shipment: Shipment }) {
       await updateDocument('shipments', shipment.id, { suratJalanUrl: url })
     } finally { setUploading(false) }
   }
-
   if (shipment.suratJalanUrl) {
     return (
       <a href={shipment.suratJalanUrl} target="_blank" rel="noopener noreferrer"
@@ -105,97 +95,24 @@ function SuratJalanCell({ shipment }: { shipment: Shipment }) {
   )
 }
 
-// ─── Dimensi & Detail Fields ──────────────────────────────────────────────────
-function DimensiFields({
-  weight, setWeight,
-  length, setLength, width, setWidth, height, setHeight,
-  condition, setCondition, picPengiriman, setPicPengiriman,
-  packingNotes, setPackingNotes, picUsers, submitted,
-}: {
-  weight: string; setWeight: (v: string) => void
-  length: string; setLength: (v: string) => void
-  width: string; setWidth: (v: string) => void
-  height: string; setHeight: (v: string) => void
-  condition: ItemCondition; setCondition: (v: ItemCondition) => void
-  picPengiriman: string; setPicPengiriman: (v: string) => void
-  packingNotes: string; setPackingNotes: (v: string) => void
-  picUsers: User[]
-  submitted?: boolean
-}) {
-  return (
-    <>
-      <div>
-        <label className="text-sm font-medium block mb-1">Berat Barang (kg)</label>
-        <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
-      </div>
-      <div>
-        <label className="text-sm font-medium block mb-1">Dimensi Barang (cm)</label>
-        <div className="grid grid-cols-3 gap-3">
-          {([['Panjang', length, setLength], ['Lebar', width, setWidth], ['Tinggi', height, setHeight]] as [string, string, (v: string) => void][]).map(([lbl, val, setter]) => (
-            <div key={lbl}>
-              <label className="text-xs text-muted-foreground block mb-1">{lbl}</label>
-              <input type="number" value={val} onChange={(e) => setter(e.target.value)}
-                className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm font-medium block mb-1">Kondisi Barang</label>
-          <select value={condition} onChange={(e) => setCondition(e.target.value as ItemCondition)}
-            className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-            {(Object.entries(CONDITION_LABELS) as [ItemCondition, string][]).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1">PIC Pengiriman <span className="text-red-500">*</span></label>
-          <select value={picPengiriman} onChange={(e) => setPicPengiriman(e.target.value)}
-            className={`w-full px-3 py-2 border ${err(!!submitted && !picPengiriman)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
-            <option value="">— Pilih PIC —</option>
-            {picUsers.map((u) => (<option key={u.id} value={u.id}>{u.name} ({u.role})</option>))}
-          </select>
-          {submitted && !picPengiriman && <p className="text-xs text-red-500 mt-0.5">Wajib pilih PIC</p>}
-        </div>
-      </div>
-      <div>
-        <label className="text-sm font-medium block mb-1">Catatan Packing</label>
-        <input value={packingNotes} onChange={(e) => setPackingNotes(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="Packing kayu, bubble wrap, pallet, dll" />
-      </div>
-    </>
-  )
-}
-
-// ─── Form: Project Sales ───────────────────────────────────────────────────────
+// ─── Form Admin: Project Sales ─────────────────────────────────────────────────
+// Admin hanya input: nama project, jadwal, PIC pengiriman, upload surat jalan, upload alamat
 function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
   projects: Project[]; picUsers: User[]; initial?: Shipment; adminIds: string[]; onClose: () => void
 }) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [projectId, setProjectId] = useState(initial?.projectId ?? projects[0]?.id ?? '')
-  const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
-  const [length, setLength] = useState(initial ? String(initial.dimensions?.length ?? 0) : '')
-  const [width, setWidth] = useState(initial ? String(initial.dimensions?.width ?? 0) : '')
-  const [height, setHeight] = useState(initial ? String(initial.dimensions?.height ?? 0) : '')
-  const [condition, setCondition] = useState<ItemCondition>(initial?.condition ?? 'baru')
-  const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
-  const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
-  const [status, setStatus] = useState<ShipmentStatus>(initial?.status ?? 'pending')
+  const [projectId, setProjectId] = useState(initial?.projectId ?? '')
   const [jadwal, setJadwal] = useState(
     initial?.jadwalPengiriman
       ? format(toDate(initial.jadwalPengiriman as never) ?? new Date(), 'yyyy-MM-dd')
       : ''
   )
+  const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? '')
   const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
   const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
 
-  // Sync picPengiriman default when picUsers loads asynchronously
   useEffect(() => {
     if (!picPengiriman && picUsers.length > 0) setPicPengiriman(picUsers[0].id)
   }, [picUsers])
@@ -204,21 +121,23 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
 
   const handleSave = async () => {
     setSubmitted(true)
-    if (!picPengiriman || !projectId || !jadwal || !user) return
+    if (!projectId || !jadwal || !picPengiriman || !user) return
     if (!initial && !addressPdfFile) return
     setSaving(true)
     try {
-      const wasSelesai = initial?.status === 'selesai'
-      const nowSelesai = status === 'selesai'
       const base = {
         projectId: selectedProject?.id ?? projectId,
         projectName: selectedProject?.name ?? '',
         leadId: null,
         picSalesId: selectedProject?.salesPic ?? '',
-        weight: Number(weight) || 0,
-        dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
-        condition, picPengiriman, packingNotes, status,
-        jadwalPengiriman: jadwal ? new Date(jadwal) : null,
+        jadwalPengiriman: new Date(jadwal),
+        picPengiriman,
+        // Fabrikasi akan isi dimensi/berat/catatan
+        weight: initial?.weight ?? 0,
+        dimensions: initial?.dimensions ?? { length: 0, width: 0, height: 0, unit: 'cm' },
+        condition: initial?.condition ?? 'baru',
+        packingNotes: initial?.packingNotes ?? '',
+        status: initial?.status ?? 'pending',
       }
       let docId = initial?.id ?? ''
       if (initial) {
@@ -227,44 +146,21 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
         docId = await createDoc('shipments', { ...base, createdBy: user.id })
       }
       const pdfUpdates: Record<string, string> = {}
-      if (addressPdfFile) {
+      if (addressPdfFile)
         pdfUpdates.addressPdfUrl = await uploadFile(buildPath.shipment(docId, `alamat-${Date.now()}.pdf`), addressPdfFile)
-      }
-      if (suratJalanFile) {
+      if (suratJalanFile)
         pdfUpdates.suratJalanUrl = await uploadFile(buildPath.shipment(docId, `surat-jalan-${Date.now()}.pdf`), suratJalanFile)
-      }
       if (Object.keys(pdfUpdates).length > 0) await updateDocument('shipments', docId, pdfUpdates)
-
-      if (nowSelesai && !wasSelesai && selectedProject) {
-        await updateDocument('projects', selectedProject.id, { pipelineStage: 'instalasi' })
-        const existingInstall = await getDocuments('installations', [where('projectId', '==', selectedProject.id)])
-        if (existingInstall.length === 0) {
-          await createDoc('installations', {
-            projectId: selectedProject.id,
-            projectName: selectedProject.name,
-            customerName: selectedProject.customerName ?? '',
-            picInstalasi: '',
-            installationDate: new Date(),
-            estimatedDuration: '',
-            deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-            lokasi: selectedProject.alamat ?? '',
-            notes: '',
-            status: 'pending',
-            createdBy: user.id,
-          })
-        }
-        await notifyPengirimSalesSelesai(selectedProject.salesPic, adminIds, selectedProject.name, selectedProject.id)
-      }
-
       onClose()
     } finally { setSaving(false) }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="px-5 pt-5 pb-3 shrink-0 border-b border-border">
-          <h3 className="font-semibold">{initial ? 'Edit Pengiriman — Project Sales' : 'Tambah Pengiriman — Project Sales'}</h3>
+          <h3 className="font-semibold">{initial ? 'Edit Jadwal — Project Sales' : 'Tambah Pengiriman — Project Sales'}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Jadwal & logistik diisi admin. Dimensi & berat diisi fabrikasi.</p>
         </div>
         <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
           <div>
@@ -277,14 +173,22 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
             {submitted && !projectId && <p className="text-xs text-red-500 mt-0.5">Wajib pilih project</p>}
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1">
-              <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Jadwal Pengiriman <span className="text-red-500">*</span></span>
+            <label className="text-sm font-medium block mb-1 flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5" /> Jadwal Pengiriman <span className="text-red-500">*</span>
             </label>
             <input type="date" value={jadwal} onChange={(e) => setJadwal(e.target.value)}
               className={`w-full px-3 py-2 border ${err(submitted && !jadwal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
             {submitted && !jadwal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
           </div>
-          <DimensiFields {...{ weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
+          <div>
+            <label className="text-sm font-medium block mb-1">PIC Pengiriman (Fabrikasi) <span className="text-red-500">*</span></label>
+            <select value={picPengiriman} onChange={(e) => setPicPengiriman(e.target.value)}
+              className={`w-full px-3 py-2 border ${err(submitted && !picPengiriman)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
+              <option value="">— Pilih PIC —</option>
+              {picUsers.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
+            </select>
+            {submitted && !picPengiriman && <p className="text-xs text-red-500 mt-0.5">Wajib pilih PIC</p>}
+          </div>
           <div>
             <PdfField
               label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
@@ -293,15 +197,6 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
             {submitted && !initial && !addressPdfFile && <p className="text-xs text-red-500 mt-0.5">PDF Alamat wajib diunggah</p>}
           </div>
           <PdfField label="Surat Jalan (PDF)" currentUrl={initial?.suratJalanUrl} file={suratJalanFile} onFileChange={setSuratJalanFile} />
-          <div>
-            <label className="text-sm font-medium block mb-1">Status Pengiriman</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as ShipmentStatus)}
-              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-              {(Object.entries(STATUS_LABELS) as [ShipmentStatus, string][]).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
         </div>
         <div className="px-5 pb-5 pt-3 shrink-0 border-t border-border flex gap-2">
           <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
@@ -315,31 +210,23 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
   )
 }
 
-// ─── Form: Project Satuan ──────────────────────────────────────────────────────
-function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
-  leads: Lead[]; picUsers: User[]; initial?: Shipment; adminIds: string[]; onClose: () => void
+// ─── Form Admin: Project Satuan ────────────────────────────────────────────────
+function SatuanShipmentForm({ leads, picUsers, initial, onClose }: {
+  leads: Lead[]; picUsers: User[]; initial?: Shipment; onClose: () => void
 }) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [leadId, setLeadId] = useState(initial?.leadId ?? leads[0]?.id ?? '')
-  const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
-  const [length, setLength] = useState(initial ? String(initial.dimensions?.length ?? 0) : '')
-  const [width, setWidth] = useState(initial ? String(initial.dimensions?.width ?? 0) : '')
-  const [height, setHeight] = useState(initial ? String(initial.dimensions?.height ?? 0) : '')
-  const [condition, setCondition] = useState<ItemCondition>(initial?.condition ?? 'baru')
-  const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? picUsers[0]?.id ?? '')
-  const [packingNotes, setPackingNotes] = useState(initial?.packingNotes ?? '')
-  const [status, setStatus] = useState<ShipmentStatus>(initial?.status ?? 'pending')
+  const [leadId, setLeadId] = useState(initial?.leadId ?? '')
   const [jadwal, setJadwal] = useState(
     initial?.jadwalPengiriman
       ? format(toDate(initial.jadwalPengiriman as never) ?? new Date(), 'yyyy-MM-dd')
       : ''
   )
+  const [picPengiriman, setPicPengiriman] = useState(initial?.picPengiriman ?? '')
   const [addressPdfFile, setAddressPdfFile] = useState<File | null>(null)
   const [suratJalanFile, setSuratJalanFile] = useState<File | null>(null)
 
-  // Sync defaults when data loads
   useEffect(() => {
     if (!picPengiriman && picUsers.length > 0) setPicPengiriman(picUsers[0].id)
   }, [picUsers])
@@ -351,7 +238,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
 
   const handleSave = async () => {
     setSubmitted(true)
-    if (!leadId || !picPengiriman || !jadwal || !user) return
+    if (!leadId || !jadwal || !picPengiriman || !user) return
     if (!initial && !addressPdfFile) return
     setSaving(true)
     try {
@@ -360,41 +247,37 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
         projectName: selectedLead ? `${selectedLead.customerName} — ${selectedLead.productName}` : '',
         leadId,
         picSalesId: selectedLead?.assignedSales ?? '',
-        weight: Number(weight) || 0,
-        dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
-        condition, picPengiriman, packingNotes, status,
-        jadwalPengiriman: jadwal ? new Date(jadwal) : null,
+        jadwalPengiriman: new Date(jadwal),
+        picPengiriman,
+        weight: initial?.weight ?? 0,
+        dimensions: initial?.dimensions ?? { length: 0, width: 0, height: 0, unit: 'cm' },
+        condition: initial?.condition ?? 'baru',
+        packingNotes: initial?.packingNotes ?? '',
+        status: initial?.status ?? 'pending',
       }
       let docId = initial?.id ?? ''
       if (initial) {
         await updateDocument('shipments', initial.id, base)
       } else {
-        docId = await createDoc('shipments', { ...base, status: 'pending', createdBy: user.id })
+        docId = await createDoc('shipments', { ...base, createdBy: user.id })
         await updateDocument('leads', leadId, { pengiriman: 'proses' })
       }
       const pdfUpdates: Record<string, string> = {}
-      if (addressPdfFile) {
+      if (addressPdfFile)
         pdfUpdates.addressPdfUrl = await uploadFile(buildPath.shipment(docId, `alamat-${Date.now()}.pdf`), addressPdfFile)
-      }
-      if (suratJalanFile) {
+      if (suratJalanFile)
         pdfUpdates.suratJalanUrl = await uploadFile(buildPath.shipment(docId, `surat-jalan-${Date.now()}.pdf`), suratJalanFile)
-      }
       if (Object.keys(pdfUpdates).length > 0) await updateDocument('shipments', docId, pdfUpdates)
-
-      // Jika status diubah ke selesai saat edit
-      if (initial && status === 'selesai' && initial.status !== 'selesai') {
-        await updateDocument('leads', leadId, { pengiriman: 'selesai' })
-      }
-
       onClose()
     } finally { setSaving(false) }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="px-5 pt-5 pb-3 shrink-0 border-b border-border">
-          <h3 className="font-semibold">{initial ? 'Edit Pengiriman — Project Satuan' : 'Tambah Pengiriman — Project Satuan'}</h3>
+          <h3 className="font-semibold">{initial ? 'Edit Jadwal — Project Satuan' : 'Tambah Pengiriman — Project Satuan'}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Jadwal & logistik diisi admin. Dimensi & berat diisi fabrikasi.</p>
         </div>
         <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
           <div>
@@ -412,14 +295,22 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
             )}
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1">
-              <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Jadwal Pengiriman <span className="text-red-500">*</span></span>
+            <label className="text-sm font-medium block mb-1 flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5" /> Jadwal Pengiriman <span className="text-red-500">*</span>
             </label>
             <input type="date" value={jadwal} onChange={(e) => setJadwal(e.target.value)}
               className={`w-full px-3 py-2 border ${err(submitted && !jadwal)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`} />
             {submitted && !jadwal && <p className="text-xs text-red-500 mt-0.5">Wajib diisi</p>}
           </div>
-          <DimensiFields {...{ weight, setWeight, length, setLength, width, setWidth, height, setHeight, condition, setCondition, picPengiriman, setPicPengiriman, packingNotes, setPackingNotes, picUsers, submitted }} />
+          <div>
+            <label className="text-sm font-medium block mb-1">PIC Pengiriman (Fabrikasi) <span className="text-red-500">*</span></label>
+            <select value={picPengiriman} onChange={(e) => setPicPengiriman(e.target.value)}
+              className={`w-full px-3 py-2 border ${err(submitted && !picPengiriman)} rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring`}>
+              <option value="">— Pilih PIC —</option>
+              {picUsers.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
+            </select>
+            {submitted && !picPengiriman && <p className="text-xs text-red-500 mt-0.5">Wajib pilih PIC</p>}
+          </div>
           <div>
             <PdfField
               label={<>PDF Alamat Pengiriman {!initial && <span className="text-red-500">*</span>}</>}
@@ -428,17 +319,6 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
             {submitted && !initial && !addressPdfFile && <p className="text-xs text-red-500 mt-0.5">PDF Alamat wajib diunggah</p>}
           </div>
           <PdfField label="Surat Jalan (PDF)" currentUrl={initial?.suratJalanUrl} file={suratJalanFile} onFileChange={setSuratJalanFile} />
-          {initial && (
-            <div>
-              <label className="text-sm font-medium block mb-1">Status Pengiriman</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value as ShipmentStatus)}
-                className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-                {(Object.entries(STATUS_LABELS) as [ShipmentStatus, string][]).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
         <div className="px-5 pb-5 pt-3 shrink-0 border-t border-border flex gap-2">
           <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
@@ -452,12 +332,131 @@ function SatuanShipmentForm({ leads, picUsers, initial, adminIds, onClose }: {
   )
 }
 
-// ─── Inline Status Select ─────────────────────────────────────────────────────
+// ─── Form Fabrikasi: Update dimensi, berat, catatan, kondisi, status ───────────
+function FabrikasiShipmentEditForm({ initial, projects, leads, adminIds, onClose }: {
+  initial: Shipment; projects: Project[]; leads: Lead[]; adminIds: string[]; onClose: () => void
+}) {
+  const { user } = useAuthStore()
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<ShipmentStatus>((initial.status as ShipmentStatus) ?? 'pending')
+  const [weight, setWeight] = useState(String(initial.weight ?? ''))
+  const [length, setLength] = useState(String(initial.dimensions?.length ?? ''))
+  const [width, setWidth] = useState(String(initial.dimensions?.width ?? ''))
+  const [height, setHeight] = useState(String(initial.dimensions?.height ?? ''))
+  const [condition, setCondition] = useState<ItemCondition>((initial.condition as ItemCondition) ?? 'baru')
+  const [packingNotes, setPackingNotes] = useState(initial.packingNotes ?? '')
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const prevStatus = initial.status as ShipmentStatus
+      await updateDocument('shipments', initial.id, {
+        status,
+        weight: Number(weight) || 0,
+        dimensions: { length: Number(length) || 0, width: Number(width) || 0, height: Number(height) || 0, unit: 'cm' },
+        condition,
+        packingNotes,
+      })
+
+      // Side-effects saat status berubah ke selesai
+      if (status === 'selesai' && prevStatus !== 'selesai') {
+        if (initial.leadId) {
+          await updateDocument('leads', initial.leadId, { pengiriman: 'selesai' })
+        } else {
+          const project = projects.find((p) => p.id === initial.projectId)
+          if (project) {
+            await updateDocument('projects', project.id, { pipelineStage: 'instalasi' })
+            const existingInstall = await getDocuments('installations', [where('projectId', '==', project.id)])
+            if (existingInstall.length === 0) {
+              await createDoc('installations', {
+                projectId: project.id, projectName: project.name,
+                customerName: project.customerName ?? '', picInstalasi: '',
+                installationDate: new Date(), estimatedDuration: '',
+                deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                lokasi: project.alamat ?? '', notes: '', status: 'pending',
+                createdBy: user?.id ?? '',
+              })
+            }
+            await notifyPengirimSalesSelesai(project.salesPic, adminIds, project.name, project.id)
+          }
+        }
+      }
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
+        <div className="px-5 pt-5 pb-3 shrink-0 border-b border-border">
+          <h3 className="font-semibold">Update Pengiriman</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{initial.projectName}</p>
+        </div>
+        <div className="px-5 py-4 overflow-y-auto flex-1 space-y-3">
+          {/* Status */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Status Pengiriman</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as ShipmentStatus)}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              {(Object.entries(STATUS_LABELS) as [ShipmentStatus, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          {/* Berat */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Berat Barang (kg)</label>
+            <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="0" />
+          </div>
+          {/* Dimensi */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Dimensi Barang (cm)</label>
+            <div className="grid grid-cols-3 gap-3">
+              {([['Panjang', length, setLength], ['Lebar', width, setWidth], ['Tinggi', height, setHeight]] as [string, string, (v: string) => void][]).map(([lbl, val, setter]) => (
+                <div key={lbl}>
+                  <label className="text-xs text-muted-foreground block mb-1">{lbl}</label>
+                  <input type="number" value={val} onChange={(e) => setter(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="0" />
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Kondisi */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Kondisi Barang</label>
+            <select value={condition} onChange={(e) => setCondition(e.target.value as ItemCondition)}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              {(Object.entries(CONDITION_LABELS) as [ItemCondition, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          {/* Catatan Packing */}
+          <div>
+            <label className="text-sm font-medium block mb-1">Catatan Packing</label>
+            <input value={packingNotes} onChange={(e) => setPackingNotes(e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Packing kayu, bubble wrap, pallet, dll" />
+          </div>
+        </div>
+        <div className="px-5 pb-5 pt-3 shrink-0 border-t border-border flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">Batal</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Inline Status Select (fabrikasi — langsung dari tabel) ───────────────────
 function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
-  shipment: Shipment
-  projects: Project[]
-  leads: Lead[]
-  adminIds: string[]
+  shipment: Shipment; projects: Project[]; leads: Lead[]; adminIds: string[]
 }) {
   const { user } = useAuthStore()
   const [saving, setSaving] = useState(false)
@@ -468,7 +467,6 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
     setSaving(true)
     try {
       await updateDocument('shipments', shipment.id, { status: newStatus })
-
       if (newStatus === 'selesai') {
         if (shipment.leadId) {
           await updateDocument('leads', shipment.leadId, { pengiriman: 'selesai' })
@@ -479,16 +477,11 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
             const existingInstall = await getDocuments('installations', [where('projectId', '==', project.id)])
             if (existingInstall.length === 0) {
               await createDoc('installations', {
-                projectId: project.id,
-                projectName: project.name,
-                customerName: project.customerName ?? '',
-                picInstalasi: '',
-                installationDate: new Date(),
-                estimatedDuration: '',
+                projectId: project.id, projectName: project.name,
+                customerName: project.customerName ?? '', picInstalasi: '',
+                installationDate: new Date(), estimatedDuration: '',
                 deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-                lokasi: project.alamat ?? '',
-                notes: '',
-                status: 'pending',
+                lokasi: project.alamat ?? '', notes: '', status: 'pending',
                 createdBy: user?.id ?? '',
               })
             }
@@ -496,25 +489,15 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
           }
         }
       }
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   return (
     <div className="flex items-center gap-1">
       {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-      <select
-        value={currentStatus}
-        disabled={saving}
+      <select value={currentStatus} disabled={saving}
         onChange={(e) => handleChange(e.target.value as ShipmentStatus)}
-        className={cn(
-          'px-2 py-0.5 text-xs rounded-full border border-transparent cursor-pointer',
-          'focus:outline-none focus:ring-1 focus:ring-ring',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          STATUS_COLORS[currentStatus],
-        )}
-      >
+        className={cn('px-2 py-0.5 text-xs rounded-full border border-transparent cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed', STATUS_COLORS[currentStatus])}>
         {(Object.entries(STATUS_LABELS) as [ShipmentStatus, string][]).map(([k, v]) => (
           <option key={k} value={k}>{v}</option>
         ))}
@@ -525,35 +508,29 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
 
 // ─── Shipment Table ────────────────────────────────────────────────────────────
 function ShipmentTable({
-  shipments, allUsers, labelKolom, leads, projects, userRole, showPicSales,
-  adminIds, onEdit, onDelete,
+  shipments, allUsers, labelKolom, leads, projects, userRole,
+  showPicSales, adminIds, onEdit, onDelete,
 }: {
-  shipments: Shipment[]
-  allUsers: User[]
-  labelKolom: string
-  leads: Lead[]
-  projects: Project[]
-  userRole: string
-  showPicSales?: boolean
-  adminIds: string[]
-  onEdit: (s: Shipment) => void
-  onDelete: (s: Shipment) => void
+  shipments: Shipment[]; allUsers: User[]; labelKolom: string
+  leads: Lead[]; projects: Project[]; userRole: string
+  showPicSales?: boolean; adminIds: string[]
+  onEdit: (s: Shipment) => void; onDelete: (s: Shipment) => void
 }) {
   const [search, setSearch] = useState('')
   const [filterCondition, setFilterCondition] = useState<ItemCondition | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<ShipmentStatus | 'all'>('all')
   const [page, setPage] = useState(1)
 
-  const userName = (id: string) => allUsers.find((u) => u.id === id)?.name ?? id ?? '-'
+  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+  const isFabrikasi = userRole === 'fabrikasi'
+
+  const userName = (id: string) => allUsers.find((u) => u.id === id)?.name ?? '-'
   const picSalesName = (s: Shipment) => {
     const salesId = s.leadId
       ? (s.picSalesId || leads.find((l) => l.id === s.leadId)?.assignedSales || '')
       : (projects.find((p) => p.id === s.projectId)?.salesPic || '')
     return salesId ? userName(salesId) : '-'
   }
-
-  const canEdit = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
-  const canDelete = (): boolean => ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
 
   const colSpan = showPicSales ? 12 : 11
 
@@ -637,10 +614,8 @@ function ShipmentTable({
             <tbody className="divide-y divide-border">
               {paginated.map((s) => {
                 const cond = (s.condition as ItemCondition) in CONDITION_LABELS
-                  ? (s.condition as ItemCondition)
-                  : 'baru'
+                  ? (s.condition as ItemCondition) : 'baru'
                 const dims = s.dimensions ?? { length: 0, width: 0, height: 0 }
-
                 return (
                   <tr key={s.id} className="hover:bg-muted/20">
                     <td className="p-3 font-medium whitespace-nowrap max-w-[200px] truncate">{s.projectName}</td>
@@ -649,9 +624,9 @@ function ShipmentTable({
                         ? <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{format(toDate(s.jadwalPengiriman as never) ?? new Date(s.jadwalPengiriman as unknown as string), 'd MMM yyyy', { locale: localeId })}</span>
                         : <span className="italic">Belum dijadwal</span>}
                     </td>
-                    <td className="p-3 text-muted-foreground whitespace-nowrap">{s.weight} kg</td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">{s.weight ? `${s.weight} kg` : '-'}</td>
                     <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">
-                      {dims.length}×{dims.width}×{dims.height} cm
+                      {dims.length || dims.width || dims.height ? `${dims.length}×${dims.width}×${dims.height} cm` : '-'}
                     </td>
                     <td className="p-3">
                       <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', CONDITION_COLORS[cond])}>
@@ -669,10 +644,11 @@ function ShipmentTable({
                     <td className="p-3 text-center"><SuratJalanCell shipment={s} /></td>
                     {showPicSales && <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{picSalesName(s)}</td>}
                     <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">
-                      {s.picPengiriman ? userName(s.picPengiriman) : <span className="italic">Belum diisi</span>}
+                      {s.picPengiriman ? userName(s.picPengiriman) : <span className="italic">-</span>}
                     </td>
                     <td className="p-3">
-                      {canEdit() ? (
+                      {/* Fabrikasi: inline status select. Admin: badge saja */}
+                      {isFabrikasi ? (
                         <StatusInlineSelect shipment={s} projects={projects} leads={leads} adminIds={adminIds} />
                       ) : (
                         <span className={cn('px-2 py-0.5 text-xs rounded-full whitespace-nowrap', STATUS_COLORS[(s.status as ShipmentStatus) ?? 'pending'])}>
@@ -680,16 +656,18 @@ function ShipmentTable({
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-muted-foreground text-xs max-w-[140px] truncate">{s.packingNotes}</td>
+                    <td className="p-3 text-muted-foreground text-xs max-w-[140px] truncate">{s.packingNotes || '-'}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-2 whitespace-nowrap">
-                        {canEdit() && (
+                        {/* Edit: admin (jadwal/pic/upload) & fabrikasi (dimensi/berat/catatan) */}
+                        {(isAdmin || isFabrikasi) && (
                           <button onClick={() => onEdit(s)} title="Edit"
                             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {canDelete() && (
+                        {/* Hapus: hanya admin */}
+                        {isAdmin && (
                           <button onClick={() => onDelete(s)}
                             className="p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors" title="Hapus">
                             <Trash2 className="h-3.5 w-3.5" />
@@ -716,15 +694,19 @@ function ShipmentTable({
 export function ShipmentPage() {
   const { user } = useAuthStore()
   const userRole = user?.role ?? ''
-  const canAdd = ['super_admin', 'admin', 'fabrikasi'].includes(userRole)
+  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+  const isFabrikasi = userRole === 'fabrikasi'
+
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [adminIds, setAdminIds] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'sales' | 'satuan'>('sales')
+
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [showSatuanForm, setShowSatuanForm] = useState(false)
+  const [showFabrikasiForm, setShowFabrikasiForm] = useState(false)
   const [editShipment, setEditShipment] = useState<Shipment | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<Shipment | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -755,14 +737,19 @@ export function ShipmentPage() {
 
   const handleEdit = (s: Shipment) => {
     setEditShipment(s)
-    if (s.leadId) setShowSatuanForm(true)
-    else setShowSalesForm(true)
+    if (isFabrikasi) {
+      setShowFabrikasiForm(true)
+    } else {
+      // Admin: form jadwal/pic/upload
+      if (s.leadId) setShowSatuanForm(true)
+      else setShowSalesForm(true)
+    }
   }
 
   const userId = user?.id ?? ''
   const visibleShipments = shipments.filter((s) => {
-    if (['super_admin', 'admin'].includes(userRole)) return true
-    if (userRole === 'fabrikasi') return s.picPengiriman === userId
+    if (isAdmin) return true
+    if (isFabrikasi) return s.picPengiriman === userId
     if (userRole === 'sales') {
       if (s.leadId) return leads.find((l) => l.id === s.leadId)?.assignedSales === userId
       return projects.find((p) => p.id === s.projectId)?.salesPic === userId
@@ -772,14 +759,24 @@ export function ShipmentPage() {
   const salesShipments = visibleShipments.filter((s) => !s.leadId)
   const satuanShipments = visibleShipments.filter((s) => !!s.leadId)
 
+  const closeAll = () => {
+    setShowSalesForm(false)
+    setShowSatuanForm(false)
+    setShowFabrikasiForm(false)
+    setEditShipment(undefined)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Pengiriman</h1>
-          <p className="text-sm text-muted-foreground">Data pengiriman barang ke customer</p>
+          <p className="text-sm text-muted-foreground">
+            {isFabrikasi ? 'Pengiriman yang ditugaskan kepada Anda' : 'Jadwal pengiriman barang ke customer'}
+          </p>
         </div>
-        {canAdd && (
+        {/* Hanya admin yang bisa tambah pengiriman baru */}
+        {isAdmin && (
           <button
             onClick={() => {
               setEditShipment(undefined)
@@ -800,10 +797,8 @@ export function ShipmentPage() {
           { id: 'satuan', label: 'Project Satuan', count: satuanShipments.length },
         ] as const).map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-              activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            )}>
+            className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+              activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
             {tab.label}
             <span className="ml-1.5 px-1.5 py-0.5 bg-border text-muted-foreground text-xs rounded-full">{tab.count}</span>
           </button>
@@ -811,40 +806,39 @@ export function ShipmentPage() {
       </div>
 
       {activeTab === 'sales' ? (
-        <ShipmentTable
-          shipments={salesShipments} allUsers={allUsers}
+        <ShipmentTable shipments={salesShipments} allUsers={allUsers}
           labelKolom="Nama Project" leads={leads} projects={projects}
           userRole={userRole} showPicSales adminIds={adminIds}
-          onEdit={handleEdit} onDelete={setDeleteTarget}
-        />
+          onEdit={handleEdit} onDelete={setDeleteTarget} />
       ) : (
-        <ShipmentTable
-          shipments={satuanShipments} allUsers={allUsers}
+        <ShipmentTable shipments={satuanShipments} allUsers={allUsers}
           labelKolom="Customer / Produk" leads={leads} projects={projects}
           userRole={userRole} showPicSales adminIds={adminIds}
-          onEdit={handleEdit} onDelete={setDeleteTarget}
-        />
+          onEdit={handleEdit} onDelete={setDeleteTarget} />
       )}
 
+      {/* Form Admin — Project Sales */}
       {showSalesForm && (
-        <SalesShipmentForm
-          projects={projects} picUsers={picUsers}
-          initial={editShipment} adminIds={adminIds}
-          onClose={() => { setShowSalesForm(false); setEditShipment(undefined) }}
-        />
+        <SalesShipmentForm projects={projects} picUsers={picUsers}
+          initial={editShipment} adminIds={adminIds} onClose={closeAll} />
       )}
 
+      {/* Form Admin — Project Satuan */}
       {showSatuanForm && (
-        <SatuanShipmentForm
-          leads={leads} picUsers={picUsers}
-          initial={editShipment} adminIds={adminIds}
-          onClose={() => { setShowSatuanForm(false); setEditShipment(undefined) }}
-        />
+        <SatuanShipmentForm leads={leads} picUsers={picUsers}
+          initial={editShipment} onClose={closeAll} />
+      )}
+
+      {/* Form Fabrikasi — Update dimensi/berat/catatan/status */}
+      {showFabrikasiForm && editShipment && (
+        <FabrikasiShipmentEditForm
+          initial={editShipment} projects={projects} leads={leads}
+          adminIds={adminIds} onClose={closeAll} />
       )}
 
       {deleteTarget && (
         <ConfirmDialog
-          message={`Hapus pengiriman "${deleteTarget.sku}" untuk "${deleteTarget.projectName}"?`}
+          message={`Hapus pengiriman "${deleteTarget.projectName}"?`}
           loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
