@@ -53,6 +53,7 @@ model Lead {
   payments        Json      @default("[]")
   dpPelunasan     String?   @default("belum_dp")
   pengiriman      String?   @default("belum")
+  instalasi       String?   @default("belum")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }

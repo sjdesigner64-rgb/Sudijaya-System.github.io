@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, Loader2, Trash2, Pencil, Check, TrendingUp, Banknote, CheckCircle, Truck } from 'lucide-react'
+import { Plus, Search, Loader2, Trash2, Pencil, Check, TrendingUp, Banknote, CheckCircle, Truck, Lock } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { toDate } from '@/utils/firestore'
 import type { Lead, DpPelunasanStatus, PengirimanStatus, ProductCategory, CustomerSource, Customer, User } from '@/types'
@@ -53,11 +53,11 @@ function TrackModal({ lead, adminIds, onClose }: { lead: Lead; adminIds: string[
   const dpDone = dp === 'sudah_dp' || dp === 'sudah_lunas'
   const pelunasanDone = dp === 'sudah_lunas'
   const pengirimanDone = pkg === 'selesai'
+  const instalasiDone = lead.instalasi === 'selesai'
 
   const act = async (updates: Record<string, string>) => {
     setSaving(true)
     try {
-      // Saat pelunasan: set pengiriman ke proses, buat shipment, notif
       if (updates.dpPelunasan === 'sudah_lunas') {
         const enriched: Record<string, unknown> = { ...updates, pengiriman: 'proses' }
         await updateDocument('leads', lead.id, enriched)
@@ -83,42 +83,56 @@ function TrackModal({ lead, adminIds, onClose }: { lead: Lead; adminIds: string[
     finally { setSaving(false) }
   }
 
-  const STEPS = [
-    { label: 'DP', desc: 'Pembayaran uang muka', done: dpDone, action: () => act({ dpPelunasan: 'sudah_dp' }) },
-    { label: 'Pelunasan', desc: 'Pelunasan penuh', done: pelunasanDone, action: () => act({ dpPelunasan: 'sudah_lunas' }) },
-    { label: 'Pengiriman', desc: 'Barang sudah dikirim', done: pengirimanDone, action: () => act({ pengiriman: 'selesai' }) },
+  const STEPS: { label: string; desc: string; done: boolean; locked: boolean; action: () => void }[] = [
+    { label: 'DP',          desc: 'Pembayaran uang muka',       done: dpDone,        locked: false,          action: () => act({ dpPelunasan: 'sudah_dp' }) },
+    { label: 'Pelunasan',   desc: 'Pelunasan penuh',             done: pelunasanDone, locked: false,          action: () => act({ dpPelunasan: 'sudah_lunas' }) },
+    { label: 'Pengiriman',  desc: 'Barang sudah dikirim',        done: pengirimanDone,locked: !pelunasanDone, action: () => act({ pengiriman: 'selesai' }) },
+    { label: 'Selesai',     desc: 'Instalasi selesai di lokasi', done: instalasiDone, locked: !pengirimanDone,action: () => act({ instalasi: 'selesai' }) },
   ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-sm p-5">
         <h3 className="font-semibold mb-1">Track Project Satuan</h3>
-        <p className="text-sm text-muted-foreground mb-5">{lead.customerName}</p>
-        <div className="space-y-3">
+        <p className="text-sm text-muted-foreground mb-5">{lead.customerName} — {lead.productName}</p>
+        <div className="space-y-2.5">
           {STEPS.map((step, i) => (
             <button
               key={step.label}
               onClick={step.action}
-              disabled={saving || step.done}
+              disabled={saving || step.done || step.locked}
               className={cn(
                 'w-full flex items-center gap-3 p-3 rounded-lg border text-sm text-left transition-colors',
                 step.done
                   ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950'
-                  : 'border-dashed border-border hover:border-primary/50 hover:bg-accent'
+                  : step.locked
+                    ? 'border-border bg-muted/30 opacity-60 cursor-not-allowed'
+                    : 'border-dashed border-border hover:border-primary/50 hover:bg-accent'
               )}
             >
               <span className={cn(
                 'w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-medium',
-                step.done ? 'bg-green-500 text-white' : 'border-2 border-border text-muted-foreground'
+                step.done
+                  ? 'bg-green-500 text-white'
+                  : step.locked
+                    ? 'bg-muted text-muted-foreground border-2 border-border'
+                    : 'border-2 border-border text-muted-foreground'
               )}>
-                {step.done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                {step.done
+                  ? <Check className="h-3.5 w-3.5" />
+                  : step.locked
+                    ? <Lock className="h-3 w-3" />
+                    : i + 1}
               </span>
               <div className="flex-1">
-                <p className={cn('font-medium', step.done ? 'text-green-700 dark:text-green-400' : '')}>{step.label}</p>
+                <p className={cn(
+                  'font-medium',
+                  step.done ? 'text-green-700 dark:text-green-400' : step.locked ? 'text-muted-foreground' : ''
+                )}>{step.label}</p>
                 <p className="text-xs text-muted-foreground">{step.desc}</p>
               </div>
-              {!step.done && (
-                <span className="text-xs text-primary border border-primary/30 px-2 py-0.5 rounded">
+              {!step.done && !step.locked && (
+                <span className="text-xs text-primary border border-primary/30 px-2 py-0.5 rounded shrink-0">
                   {saving ? '...' : 'Tandai'}
                 </span>
               )}
@@ -663,9 +677,10 @@ export function LeadsPage() {
                     <td className="p-3">
                       <div className="flex flex-col gap-1">
                         {[
-                          { label: 'DP', done: dp === 'sudah_dp' || dp === 'sudah_lunas' },
-                          { label: 'Lunas', done: dp === 'sudah_lunas' },
-                          { label: 'Kirim', done: pkg === 'selesai' },
+                          { label: 'DP',      done: dp === 'sudah_dp' || dp === 'sudah_lunas' },
+                          { label: 'Lunas',   done: dp === 'sudah_lunas' },
+                          { label: 'Kirim',   done: pkg === 'selesai' },
+                          { label: 'Selesai', done: (lead.instalasi ?? 'belum') === 'selesai' },
                         ].map((step) => (
                           <div key={step.label} className="flex items-center gap-1.5">
                             <span className={cn(

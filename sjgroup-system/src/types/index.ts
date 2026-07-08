@@ -61,6 +61,7 @@ export interface Lead {
   payments?: Payment[]
   dpPelunasan?: DpPelunasanStatus
   pengiriman?: PengirimanStatus
+  instalasi?: 'belum' | 'selesai'
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────────
