@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { format, addDays, differenceInDays, startOfDay } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
-import { Plus, StickyNote, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, StickyNote, ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { GanttTask, GanttTaskName, GanttTaskStatus } from '@/types'
 
@@ -223,22 +223,44 @@ export function GanttChart({
                   </td>
 
                   {/* Tanggal Mulai */}
-                  <td className="border-r border-border p-3 text-muted-foreground text-xs">
+                  <td className="border-r border-border p-2 text-muted-foreground text-xs">
                     {canEdit && editingStart?.id === task.id ? (
-                      <input
-                        type="date"
-                        autoFocus
-                        value={editingStart.value}
-                        onChange={(e) => setEditingStart({ id: task.id, value: e.target.value })}
-                        onBlur={() => {
-                          if (editingStart.value) onStartDateChange?.(task.id, parseLocalDate(editingStart.value))
-                          setEditingStart(null)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') setEditingStart(null)
-                        }}
-                        className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
+                      <div className="space-y-1">
+                        <input
+                          type="date"
+                          autoFocus
+                          value={editingStart.value}
+                          onChange={(e) => setEditingStart({ id: task.id, value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && editingStart.value) {
+                              onStartDateChange?.(task.id, parseLocalDate(editingStart.value))
+                              setEditingStart(null)
+                            }
+                            if (e.key === 'Escape') setEditingStart(null)
+                          }}
+                          className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              if (editingStart.value) onStartDateChange?.(task.id, parseLocalDate(editingStart.value))
+                              setEditingStart(null)
+                            }}
+                            className="flex-1 flex items-center justify-center gap-0.5 py-0.5 bg-primary text-primary-foreground rounded text-xs hover:bg-primary/90"
+                            title="Simpan (Enter)"
+                          >
+                            <Check className="h-3 w-3" /> Simpan
+                          </button>
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); setEditingStart(null) }}
+                            className="px-1.5 py-0.5 border border-border rounded text-xs hover:bg-accent"
+                            title="Batal (Esc)"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <button
                         onClick={() => canEdit && setEditingStart({
@@ -255,22 +277,44 @@ export function GanttChart({
                   </td>
 
                   {/* Deadline */}
-                  <td className="border-r border-border p-3 text-muted-foreground text-xs">
+                  <td className="border-r border-border p-2 text-muted-foreground text-xs">
                     {canEdit && editingDeadline?.id === task.id ? (
-                      <input
-                        type="date"
-                        autoFocus
-                        value={editingDeadline.value}
-                        onChange={(e) => setEditingDeadline({ id: task.id, value: e.target.value })}
-                        onBlur={() => {
-                          if (editingDeadline.value) onDeadlineChange?.(task.id, parseLocalDate(editingDeadline.value))
-                          setEditingDeadline(null)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') setEditingDeadline(null)
-                        }}
-                        className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
+                      <div className="space-y-1">
+                        <input
+                          type="date"
+                          autoFocus
+                          value={editingDeadline.value}
+                          onChange={(e) => setEditingDeadline({ id: task.id, value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && editingDeadline.value) {
+                              onDeadlineChange?.(task.id, parseLocalDate(editingDeadline.value))
+                              setEditingDeadline(null)
+                            }
+                            if (e.key === 'Escape') setEditingDeadline(null)
+                          }}
+                          className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              if (editingDeadline.value) onDeadlineChange?.(task.id, parseLocalDate(editingDeadline.value))
+                              setEditingDeadline(null)
+                            }}
+                            className="flex-1 flex items-center justify-center gap-0.5 py-0.5 bg-primary text-primary-foreground rounded text-xs hover:bg-primary/90"
+                            title="Simpan (Enter)"
+                          >
+                            <Check className="h-3 w-3" /> Simpan
+                          </button>
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); setEditingDeadline(null) }}
+                            className="px-1.5 py-0.5 border border-border rounded text-xs hover:bg-accent"
+                            title="Batal (Esc)"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <button
                         onClick={() => canEdit && setEditingDeadline({
