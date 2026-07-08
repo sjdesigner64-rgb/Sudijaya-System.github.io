@@ -224,25 +224,26 @@ model WarehouseStock {
 }
 
 model Shipment {
-  id            String   @id @default(cuid())
-  projectId     String
-  projectName   String?
-  leadId        String?
-  picSalesId    String?
-  sku           String
-  quantity      Int      @default(0)
-  weight        Float    @default(0)
-  dimensions    Json
-  condition      String
-  address        String?  @db.Text
-  addressPdfUrl  String?
-  suratJalanUrl  String?
-  picPengiriman  String
-  packingNotes   String?  @db.Text
-  status         String   @default("pending")
-  createdBy     String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String    @id @default(cuid())
+  projectId         String
+  projectName       String?
+  leadId            String?
+  picSalesId        String?
+  sku               String?
+  quantity          Int       @default(0)
+  weight            Float     @default(0)
+  dimensions        Json
+  condition         String    @default("baru")
+  address           String?   @db.Text
+  addressPdfUrl     String?
+  suratJalanUrl     String?
+  jadwalPengiriman  DateTime?
+  picPengiriman     String
+  packingNotes      String?   @db.Text
+  status            String    @default("pending")
+  createdBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@map("shipments")
 }
