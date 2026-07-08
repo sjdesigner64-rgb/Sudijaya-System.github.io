@@ -89,6 +89,20 @@ interface GanttChartProps {
   onStartDateChange?: (taskId: string, date: Date) => void
 }
 
+// Parse 'yyyy-MM-dd' string ke local Date (bukan UTC midnight)
+const parseLocalDate = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+// Format Date ke 'yyyy-MM-dd' pakai local timezone
+const formatDateInput = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function GanttChart({
   tasks,
   projectName,
@@ -103,8 +117,9 @@ export function GanttChart({
   const [viewStart, setViewStart] = useState(today)
   const DAYS_SHOWN = 14
   const [noteModal, setNoteModal] = useState<{ task: GanttTask; date: Date } | null>(null)
-  const [editingDeadlineId, setEditingDeadlineId] = useState<string | null>(null)
-  const [editingStartId, setEditingStartId] = useState<string | null>(null)
+  // State editing: { id: taskId, value: 'yyyy-MM-dd' } — onChange hanya update value, onBlur yg simpan
+  const [editingStart, setEditingStart] = useState<{ id: string; value: string } | null>(null)
+  const [editingDeadline, setEditingDeadline] = useState<{ id: string; value: string } | null>(null)
 
   const days = Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(viewStart, i))
 
@@ -209,24 +224,27 @@ export function GanttChart({
 
                   {/* Tanggal Mulai */}
                   <td className="border-r border-border p-3 text-muted-foreground text-xs">
-                    {canEdit && editingStartId === task.id ? (
+                    {canEdit && editingStart?.id === task.id ? (
                       <input
                         type="date"
                         autoFocus
-                        defaultValue={task.startDate ? format(new Date(task.startDate), 'yyyy-MM-dd') : ''}
-                        onBlur={(e) => {
-                          setEditingStartId(null)
-                          if (e.target.value) onStartDateChange?.(task.id, new Date(e.target.value))
+                        value={editingStart.value}
+                        onChange={(e) => setEditingStart({ id: task.id, value: e.target.value })}
+                        onBlur={() => {
+                          if (editingStart.value) onStartDateChange?.(task.id, parseLocalDate(editingStart.value))
+                          setEditingStart(null)
                         }}
-                        onChange={(e) => {
-                          if (e.target.value) onStartDateChange?.(task.id, new Date(e.target.value))
-                          setEditingStartId(null)
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setEditingStart(null)
                         }}
                         className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                     ) : (
                       <button
-                        onClick={() => canEdit && setEditingStartId(task.id)}
+                        onClick={() => canEdit && setEditingStart({
+                          id: task.id,
+                          value: task.startDate ? formatDateInput(new Date(task.startDate)) : '',
+                        })}
                         disabled={!canEdit}
                         className={cn('text-left', canEdit && 'hover:text-primary hover:underline')}
                         title={canEdit ? 'Klik untuk ubah tanggal mulai' : undefined}
@@ -238,24 +256,27 @@ export function GanttChart({
 
                   {/* Deadline */}
                   <td className="border-r border-border p-3 text-muted-foreground text-xs">
-                    {canEdit && editingDeadlineId === task.id ? (
+                    {canEdit && editingDeadline?.id === task.id ? (
                       <input
                         type="date"
                         autoFocus
-                        defaultValue={format(new Date(task.deadline), 'yyyy-MM-dd')}
-                        onBlur={(e) => {
-                          setEditingDeadlineId(null)
-                          if (e.target.value) onDeadlineChange?.(task.id, new Date(e.target.value))
+                        value={editingDeadline.value}
+                        onChange={(e) => setEditingDeadline({ id: task.id, value: e.target.value })}
+                        onBlur={() => {
+                          if (editingDeadline.value) onDeadlineChange?.(task.id, parseLocalDate(editingDeadline.value))
+                          setEditingDeadline(null)
                         }}
-                        onChange={(e) => {
-                          if (e.target.value) onDeadlineChange?.(task.id, new Date(e.target.value))
-                          setEditingDeadlineId(null)
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setEditingDeadline(null)
                         }}
                         className="w-full px-1 py-0.5 border border-input rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                     ) : (
                       <button
-                        onClick={() => canEdit && setEditingDeadlineId(task.id)}
+                        onClick={() => canEdit && setEditingDeadline({
+                          id: task.id,
+                          value: task.deadline ? formatDateInput(new Date(task.deadline)) : '',
+                        })}
                         disabled={!canEdit}
                         className={cn('text-left', canEdit && 'hover:text-primary hover:underline')}
                         title={canEdit ? 'Klik untuk ubah deadline' : undefined}

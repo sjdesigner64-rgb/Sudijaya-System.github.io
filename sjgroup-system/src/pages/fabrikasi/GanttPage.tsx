@@ -26,6 +26,17 @@ const STATUS_COLORS: Record<ProductionGantt['status'], string> = {
   completed: 'bg-green-100 dark:bg-green-900 text-green-700',
 }
 
+const parseLocalDate = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+const formatDateInput = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function NewGanttForm({ projects, existingIds, onClose }: { projects: Project[]; existingIds: string[]; onClose: () => void }) {
   const availableProjects = projects.filter((p) => !existingIds.includes(p.id))
   const [projectId, setProjectId] = useState(availableProjects[0]?.id ?? '')
@@ -42,14 +53,14 @@ function NewGanttForm({ projects, existingIds, onClose }: { projects: Project[];
         projectId: selectedProject.id,
         projectName: selectedProject.name,
         salesPic: selectedProject.salesPic,
-        overallDeadline: new Date(overallDeadline),
+        overallDeadline: parseLocalDate(overallDeadline),
         status: 'active',
       })
       await Promise.all(
         TASK_SEQUENCE.map((taskName) =>
           createDoc(`production_gantt/${ganttId}/tasks`, {
             taskName,
-            deadline: new Date(overallDeadline),
+            deadline: parseLocalDate(overallDeadline),
             status: 'pending',
             pic: [],
             notes: [],
@@ -95,13 +106,13 @@ function NewGanttForm({ projects, existingIds, onClose }: { projects: Project[];
 
 function EditGanttForm({ gantt, onClose }: { gantt: ProductionGantt; onClose: () => void }) {
   const [saving, setSaving] = useState(false)
-  const [overallDeadline, setOverallDeadline] = useState(gantt.overallDeadline.toISOString().slice(0, 10))
+  const [overallDeadline, setOverallDeadline] = useState(formatDateInput(gantt.overallDeadline))
   const [status, setStatus] = useState<ProductionGantt['status']>(gantt.status)
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await updateDocument('production_gantt', gantt.id, { overallDeadline: new Date(overallDeadline), status })
+      await updateDocument('production_gantt', gantt.id, { overallDeadline: parseLocalDate(overallDeadline), status })
       onClose()
     } finally {
       setSaving(false)
