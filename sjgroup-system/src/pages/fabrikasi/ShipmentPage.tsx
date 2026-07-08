@@ -510,7 +510,10 @@ function ShipmentTable({
     return salesId ? userName(salesId) : '-'
   }
 
-  const colSpan = showPicSales ? 12 : 11
+  const colSpan = showPicSales ? 13 : 12
+  const customerName = (s: Shipment) => s.leadId
+    ? (leads.find((l) => l.id === s.leadId)?.customerName ?? '-')
+    : (projects.find((p) => p.id === s.projectId)?.customerName ?? '-')
 
   const filtered = shipments.filter((s) => {
     const q = search.toLowerCase()
@@ -576,6 +579,7 @@ function ShipmentTable({
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">{labelKolom}</th>
+                <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Customer</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Jadwal Kirim</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Berat</th>
                 <th className="text-left p-3 font-medium text-muted-foreground whitespace-nowrap">Dimensi (cm)</th>
@@ -597,6 +601,7 @@ function ShipmentTable({
                 return (
                   <tr key={s.id} className="hover:bg-muted/20">
                     <td className="p-3 font-medium whitespace-nowrap max-w-[200px] truncate">{s.projectName}</td>
+                    <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{customerName(s)}</td>
                     <td className="p-3 text-muted-foreground whitespace-nowrap text-xs">
                       {s.jadwalPengiriman
                         ? <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{format(toDate(s.jadwalPengiriman as never) ?? new Date(s.jadwalPengiriman as unknown as string), 'd MMM yyyy', { locale: localeId })}</span>
