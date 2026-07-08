@@ -264,10 +264,56 @@ export function GanttPage() {
 
   const handleDeadlineChange = async (taskId: string, date: Date) => {
     await updateDocument(`production_gantt/${selectedId}/tasks`, taskId, { deadline: date })
+
+    const task = tasks.find((t) => t.id === taskId)
+    if (task?.taskName !== 'instalasi' || !selected) return
+    const project = projects.find((p) => p.id === selected.projectId)
+
+    if (installation) {
+      await updateDocument('installations', installation.id, { deadline: date })
+    } else if (task.startDate) {
+      // startDate sudah ada, sekarang deadline tersedia → buat instalasi baru
+      await createDoc('installations', {
+        projectId: selected.projectId,
+        projectName: selected.projectName,
+        customerName: project?.customerName ?? '',
+        picInstalasi: '',
+        installationDate: task.startDate,
+        estimatedDuration: '',
+        deadline: date,
+        lokasi: project?.alamat ?? '',
+        notes: '',
+        status: 'pending',
+        createdBy: user?.id ?? '',
+      })
+    }
   }
 
   const handleStartDateChange = async (taskId: string, date: Date) => {
     await updateDocument(`production_gantt/${selectedId}/tasks`, taskId, { startDate: date })
+
+    const task = tasks.find((t) => t.id === taskId)
+    if (task?.taskName !== 'instalasi' || !selected) return
+    const project = projects.find((p) => p.id === selected.projectId)
+
+    if (installation) {
+      await updateDocument('installations', installation.id, { installationDate: date })
+    } else {
+      // task.deadline selalu ada (default dari overallDeadline saat gantt dibuat) → buat instalasi baru
+      await createDoc('installations', {
+        projectId: selected.projectId,
+        projectName: selected.projectName,
+        customerName: project?.customerName ?? '',
+        picInstalasi: '',
+        installationDate: date,
+        estimatedDuration: '',
+        deadline: task.deadline,
+        lokasi: project?.alamat ?? '',
+        notes: '',
+        status: 'pending',
+        createdBy: user?.id ?? '',
+      })
+    }
   }
 
   const handleSaveNote = async (taskId: string, date: Date, content: string) => {
