@@ -361,7 +361,7 @@ function FabrikasiShipmentEditForm({ initial, projects, leads, adminIds, onClose
       // Side-effects saat status berubah ke selesai
       if (status === 'selesai' && prevStatus !== 'selesai') {
         if (initial.leadId) {
-          await updateDocument('leads', initial.leadId, { pengiriman: 'selesai' })
+          await updateDocument('leads', initial.leadId, { pengiriman: 'selesai', instalasi: 'selesai' })
         } else {
           const project = projects.find((p) => p.id === initial.projectId)
           if (project) {
@@ -469,7 +469,7 @@ function StatusInlineSelect({ shipment, projects, leads, adminIds }: {
       await updateDocument('shipments', shipment.id, { status: newStatus })
       if (newStatus === 'selesai') {
         if (shipment.leadId) {
-          await updateDocument('leads', shipment.leadId, { pengiriman: 'selesai' })
+          await updateDocument('leads', shipment.leadId, { pengiriman: 'selesai', instalasi: 'selesai' })
         } else {
           const project = projects.find((p) => p.id === shipment.projectId)
           if (project) {
