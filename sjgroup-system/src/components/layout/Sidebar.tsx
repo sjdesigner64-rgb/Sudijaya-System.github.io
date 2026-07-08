@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/utils/cn'
 import type { UserRole } from '@/types'
+import { useSidebarBadges } from '@/hooks/useSidebarBadges'
 
 interface NavItem {
   to: string
@@ -46,6 +47,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user } = useAuthStore()
+  const badges = useSidebarBadges()
   if (!user) return null
 
   const visible = NAV_ITEMS.filter((item) => item.roles.includes(user.role))
@@ -91,7 +93,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               }
             >
               {item.icon}
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {(badges[item.to] ?? 0) > 0 && (
+                <span className="ml-auto min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-red-500 text-white flex items-center justify-center leading-none">
+                  {badges[item.to] > 99 ? '99+' : badges[item.to]}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
