@@ -12,6 +12,9 @@ interface PaymentEntry {
 const countPaid = (payments: unknown) =>
   (Array.isArray(payments) ? (payments as PaymentEntry[]) : []).filter((p) => p.status === 'paid').length
 
+const countTotal = (payments: unknown) =>
+  Array.isArray(payments) ? (payments as PaymentEntry[]).length : 0
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
 const coerceDates = (value: unknown): unknown => {
   if (typeof value === 'string' && ISO_DATE_RE.test(value)) return new Date(value)
@@ -85,7 +88,10 @@ router.put('/:id', async (req, res, next: NextFunction) => {
     emitChange('projects')
 
     const paidBefore = countPaid(before?.payments)
-    const paidAfter = countPaid(doc.payments)
+    const paidAfter  = countPaid(doc.payments)
+    const totalAfter = countTotal(doc.payments)
+
+    // DP pertama masuk → advance ke dp_layout, notif fabrikasi
     if (paidBefore === 0 && paidAfter > 0) {
       await advanceProjectStage(doc.id, 'dp_layout')
 
@@ -98,6 +104,35 @@ router.put('/:id', async (req, res, next: NextFunction) => {
           relatedId: doc.id,
           relatedCollection: 'projects',
         })
+      }
+    }
+
+    // Semua termin lunas → auto-create shipment + advance ke pengiriman
+    const allPaidBefore = countTotal(before?.payments) > 0 && countPaid(before?.payments) === countTotal(before?.payments)
+    const allPaidAfter  = totalAfter > 0 && paidAfter === totalAfter
+    if (allPaidAfter && !allPaidBefore) {
+      await advanceProjectStage(doc.id, 'pengiriman')
+
+      const existingShipment = await prisma.shipment.findFirst({
+        where: { projectId: doc.id, leadId: null },
+      })
+      if (!existingShipment) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await prisma.shipment.create({
+          data: {
+            projectId: doc.id,
+            projectName: doc.name,
+            picSalesId: doc.salesPic,
+            quantity: 0,
+            weight: 0,
+            dimensions: { length: 0, width: 0, height: 0 },
+            condition: 'baru',
+            picPengiriman: '',
+            status: 'pending',
+            createdBy: req.user!.id,
+          } as any,
+        })
+        emitChange('shipments')
       }
     }
 

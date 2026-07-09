@@ -7,7 +7,7 @@ import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
 import type { Project, Payment, Lead, DpPelunasanStatus, User, DrawingRequest } from '@/types'
 import { subscribeToCollection, updateDocument, createDoc, where } from '@/services/firestore.service'
-import { notifyShipmentReady, notifyShipmentSalesReady, notifyMeetingFabrikasi } from '@/services/notification.service'
+import { notifyShipmentReady, notifyMeetingFabrikasi } from '@/services/notification.service'
 import { useAuthStore } from '@/store/authStore'
 import { Pagination } from '@/components/common/Pagination'
 
@@ -297,35 +297,8 @@ function ProjectSalesSection({
         i === index ? { ...p, status: 'paid' as const, date: new Date() } : p
       )
       const paidCount = newPayments.filter((p) => p.status === 'paid').length
-      const allPaid = paidCount === newPayments.length
-      const wasInPengiriman = project.pipelineStage === 'pengiriman'
 
-      const updates: Record<string, unknown> = { payments: newPayments }
-
-      if (allPaid && !wasInPengiriman) {
-        updates.pipelineStage = 'pengiriman'
-      }
-
-      await updateDocument('projects', project.id, updates)
-
-      // Semua lunas → auto-buat shipment + notif
-      if (allPaid && !wasInPengiriman) {
-        await createDoc('shipments', {
-          projectId: project.id,
-          projectName: project.name,
-          leadId: null,
-          picSalesId: project.salesPic,
-          sku: project.name,
-          quantity: 1, weight: 0,
-          dimensions: { length: 0, width: 0, height: 0, unit: 'cm' },
-          condition: 'baru',
-          picPengiriman: '',
-          packingNotes: '',
-          status: 'pending',
-          createdBy: currentUserId,
-        })
-        await notifyShipmentSalesReady(project.salesPic, adminIds, project.name, project.id)
-      }
+      await updateDocument('projects', project.id, { payments: newPayments })
 
       // DP pertama dibayar + stage dp_layout → cek drawing request, maju ke meeting_fabrikasi
       if (paidCount === 1 && project.pipelineStage === 'dp_layout') {
