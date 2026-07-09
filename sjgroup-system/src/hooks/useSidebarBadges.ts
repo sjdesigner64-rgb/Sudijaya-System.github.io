@@ -123,15 +123,30 @@ export const useSidebarBadges = (): BadgeCounts => {
       )
     }
 
-    // Payment Tracking — project sales dengan pembayaran yang masih pending
+    // Payment Tracking — project belum ada rencana payment ATAU ada termin pending; lead belum lunas
     if (['super_admin', 'admin'].includes(role)) {
+      let projectCount = 0
+      let leadCount = 0
+      const updatePayment = () => set('/payment', projectCount + leadCount)
+
       unsubs.push(
         subscribeToCollection('projects', [], (docs) => {
-          const n = docs.filter((d) => {
+          projectCount = docs.filter((d) => {
             const payments = d.payments as { status: string }[] | undefined
-            return Array.isArray(payments) && payments.some((p) => p.status === 'pending')
+            if (!Array.isArray(payments) || payments.length === 0) return true
+            return payments.some((p) => p.status === 'pending')
           }).length
-          set('/payment', n)
+          updatePayment()
+        })
+      )
+
+      unsubs.push(
+        subscribeToCollection('leads', [], (docs) => {
+          leadCount = docs.filter((d) => {
+            const status = (d.dpPelunasan as string | undefined) ?? 'belum_dp'
+            return status !== 'sudah_lunas'
+          }).length
+          updatePayment()
         })
       )
     }
