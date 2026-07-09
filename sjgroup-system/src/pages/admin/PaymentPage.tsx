@@ -918,7 +918,7 @@ export function PaymentPage() {
   }, [])
 
   const pendingProjectCount = projects.filter(
-    (p) => p.payments.length > 0 && !p.payments.every((pay) => pay.status === 'paid')
+    (p) => !(p.payments.length > 0 && p.payments.every((pay) => pay.status === 'paid'))
   ).length
   const pendingLeadCount = leads.filter((l) => (l.dpPelunasan ?? 'belum_dp') !== 'sudah_lunas').length
 
