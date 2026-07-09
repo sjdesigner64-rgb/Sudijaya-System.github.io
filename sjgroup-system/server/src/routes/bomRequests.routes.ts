@@ -58,7 +58,7 @@ router.post('/', requireRole(['sales', 'super_admin']), async (req, res, next: N
   } catch (err) { next(err) }
 })
 
-router.put('/:id', async (req, res, next: NextFunction) => {
+router.put('/:id', requireRole(['super_admin', 'admin', 'fabrikasi', 'sales']), async (req, res, next: NextFunction) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const doc = await prisma.bomRequest.update({ where: { id: req.params.id }, data: coerceBody(req.body) as any })
@@ -67,8 +67,13 @@ router.put('/:id', async (req, res, next: NextFunction) => {
   } catch (err) { next(err) }
 })
 
-router.delete('/:id', async (req, res, next: NextFunction) => {
+router.delete('/:id', requireRole(['super_admin', 'admin', 'sales']), async (req, res, next: NextFunction) => {
   try {
+    if (req.user!.role === 'sales') {
+      const existing = await prisma.bomRequest.findUnique({ where: { id: req.params.id } })
+      if (!existing || existing.requestedBy !== req.user!.id)
+        return res.status(403).json({ error: 'Forbidden' })
+    }
     await prisma.bomRequest.delete({ where: { id: req.params.id } })
     emitChange('requests_bom')
     res.json({ success: true })

@@ -99,6 +99,9 @@ router.post('/:ganttId/tasks', async (req, res, next: NextFunction) => {
 router.put('/:ganttId/tasks/:taskId', async (req, res, next: NextFunction) => {
   try {
     const existing = await prisma.ganttTask.findUnique({ where: { id: req.params.taskId } })
+    if (!existing) return res.status(404).json({ error: 'Not found' })
+    if (existing.ganttId !== req.params.ganttId)
+      return res.status(403).json({ error: 'Task does not belong to this gantt' })
 
     const task = await prisma.ganttTask.update({
       where: { id: req.params.taskId },

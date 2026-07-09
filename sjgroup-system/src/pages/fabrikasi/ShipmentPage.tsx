@@ -14,6 +14,11 @@ import { notifyPengirimSalesSelesai } from '@/services/notification.service'
 
 const PAGE_SIZE = 10
 
+const parseLocalDate = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 const STATUS_LABELS: Record<ShipmentStatus, string> = { pending: 'Pending', proses: 'Proses', selesai: 'Selesai' }
 const STATUS_COLORS: Record<ShipmentStatus, string> = {
   pending: 'bg-gray-100 dark:bg-gray-800 text-gray-600',
@@ -130,7 +135,7 @@ function SalesShipmentForm({ projects, picUsers, initial, adminIds, onClose }: {
         projectName: selectedProject?.name ?? '',
         leadId: null,
         picSalesId: selectedProject?.salesPic ?? '',
-        jadwalPengiriman: new Date(jadwal),
+        jadwalPengiriman: parseLocalDate(jadwal),
         picPengiriman,
         // Fabrikasi akan isi dimensi/berat/catatan
         weight: initial?.weight ?? 0,
@@ -247,7 +252,7 @@ function SatuanShipmentForm({ leads, picUsers, initial, onClose }: {
         projectName: selectedLead ? `${selectedLead.customerName} — ${selectedLead.productName}` : '',
         leadId,
         picSalesId: selectedLead?.assignedSales ?? '',
-        jadwalPengiriman: new Date(jadwal),
+        jadwalPengiriman: parseLocalDate(jadwal),
         picPengiriman,
         weight: initial?.weight ?? 0,
         dimensions: initial?.dimensions ?? { length: 0, width: 0, height: 0, unit: 'cm' },

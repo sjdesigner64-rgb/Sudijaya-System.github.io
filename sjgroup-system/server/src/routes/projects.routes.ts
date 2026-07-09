@@ -84,6 +84,9 @@ router.post('/', async (req, res, next: NextFunction) => {
 router.put('/:id', async (req, res, next: NextFunction) => {
   try {
     const before = await prisma.project.findUnique({ where: { id: req.params.id } })
+    if (!before) return res.status(404).json({ error: 'Not found' })
+    if (req.user!.role === 'sales' && before.salesPic !== req.user!.id)
+      return res.status(403).json({ error: 'Forbidden' })
     const doc = await prisma.project.update({ where: { id: req.params.id }, data: coerceBody(req.body) })
     emitChange('projects')
 
@@ -150,6 +153,8 @@ router.put('/:id', async (req, res, next: NextFunction) => {
 
 router.delete('/:id', async (req, res, next: NextFunction) => {
   try {
+    if (!['super_admin', 'admin'].includes(req.user!.role))
+      return res.status(403).json({ error: 'Forbidden' })
     await prisma.project.delete({ where: { id: req.params.id } })
     emitChange('projects')
     res.json({ success: true })

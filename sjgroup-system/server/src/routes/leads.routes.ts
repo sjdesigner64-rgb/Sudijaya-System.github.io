@@ -71,6 +71,10 @@ router.post('/', async (req, res, next: NextFunction) => {
 
 router.put('/:id', async (req, res, next: NextFunction) => {
   try {
+    const existing = await prisma.lead.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ error: 'Not found' })
+    if (req.user!.role === 'sales' && existing.assignedSales !== req.user!.id)
+      return res.status(403).json({ error: 'Forbidden' })
     const doc = await prisma.lead.update({
       where: { id: req.params.id },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,6 +87,10 @@ router.put('/:id', async (req, res, next: NextFunction) => {
 
 router.delete('/:id', async (req, res, next: NextFunction) => {
   try {
+    const existing = await prisma.lead.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ error: 'Not found' })
+    if (!isAdmin(req.user!.role) && existing.assignedSales !== req.user!.id)
+      return res.status(403).json({ error: 'Forbidden' })
     await prisma.lead.delete({ where: { id: req.params.id } })
     emitChange('leads')
     res.json({ success: true })

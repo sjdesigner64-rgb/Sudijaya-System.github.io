@@ -51,7 +51,7 @@ app.use(cors({
   origin: (origin, cb) => {
     // Izinkan request tanpa origin (Postman, server-to-server) hanya di dev
     if (!origin && !isProd) return cb(null, true)
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+    if (origin && allowedOrigins.includes(origin)) return cb(null, true)
     cb(new Error('Not allowed by CORS'))
   },
   credentials: true,

@@ -171,6 +171,7 @@ export function GanttPage() {
   const [deleting, setDeleting] = useState(false)
   const [installation, setInstallation] = useState<Installation | null>(null)
   const syncingRef = useRef(false)
+  const creatingInstallRef = useRef(false)
   const canEdit = user?.role === 'fabrikasi' || user?.role === 'super_admin' || user?.role === 'admin'
 
   useEffect(() => {
@@ -282,21 +283,24 @@ export function GanttPage() {
 
     if (installation) {
       await updateDocument('installations', installation.id, { deadline: date })
-    } else if (task.startDate) {
+    } else if (task.startDate && !creatingInstallRef.current) {
       // startDate sudah ada, sekarang deadline tersedia → buat instalasi baru
-      await createDoc('installations', {
-        projectId: selected.projectId,
-        projectName: selected.projectName,
-        customerName: project?.customerName ?? '',
-        picInstalasi: '',
-        installationDate: task.startDate,
-        estimatedDuration: '',
-        deadline: date,
-        lokasi: project?.alamat ?? '',
-        notes: '',
-        status: 'pending',
-        createdBy: user?.id ?? '',
-      })
+      creatingInstallRef.current = true
+      try {
+        await createDoc('installations', {
+          projectId: selected.projectId,
+          projectName: selected.projectName,
+          customerName: project?.customerName ?? '',
+          picInstalasi: '',
+          installationDate: task.startDate,
+          estimatedDuration: '',
+          deadline: date,
+          lokasi: project?.alamat ?? '',
+          notes: '',
+          status: 'pending',
+          createdBy: user?.id ?? '',
+        })
+      } finally { creatingInstallRef.current = false }
     }
   }
 
@@ -309,21 +313,24 @@ export function GanttPage() {
 
     if (installation) {
       await updateDocument('installations', installation.id, { installationDate: date })
-    } else {
+    } else if (!creatingInstallRef.current) {
       // task.deadline selalu ada (default dari overallDeadline saat gantt dibuat) → buat instalasi baru
-      await createDoc('installations', {
-        projectId: selected.projectId,
-        projectName: selected.projectName,
-        customerName: project?.customerName ?? '',
-        picInstalasi: '',
-        installationDate: date,
-        estimatedDuration: '',
-        deadline: task.deadline,
-        lokasi: project?.alamat ?? '',
-        notes: '',
-        status: 'pending',
-        createdBy: user?.id ?? '',
-      })
+      creatingInstallRef.current = true
+      try {
+        await createDoc('installations', {
+          projectId: selected.projectId,
+          projectName: selected.projectName,
+          customerName: project?.customerName ?? '',
+          picInstalasi: '',
+          installationDate: date,
+          estimatedDuration: '',
+          deadline: task.deadline,
+          lokasi: project?.alamat ?? '',
+          notes: '',
+          status: 'pending',
+          createdBy: user?.id ?? '',
+        })
+      } finally { creatingInstallRef.current = false }
     }
   }
 

@@ -34,15 +34,17 @@ export const useSidebarBadges = (): BadgeCounts => {
       )
     }
 
-    // Request BOM — pending (fabrikasi & warehouse: pending_fabrikasi; admin: semua pending)
-    if (['super_admin', 'admin', 'fabrikasi', 'warehouse'].includes(role)) {
+    // Request BOM — pending (fabrikasi: pending_fabrikasi; admin: semua pending; sales: milik sendiri yg pending)
+    if (['super_admin', 'admin', 'fabrikasi', 'sales'].includes(role)) {
       unsubs.push(
         subscribeToCollection('requests_bom', [], (docs) => {
-          const n = docs.filter((d) =>
-            role === 'admin' || role === 'super_admin'
-              ? d.status === 'pending_fabrikasi' || d.status === 'pending_admin'
-              : d.status === 'pending_fabrikasi'
-          ).length
+          const n = docs.filter((d) => {
+            if (role === 'admin' || role === 'super_admin')
+              return d.status === 'pending_fabrikasi' || d.status === 'pending_admin'
+            if (role === 'sales')
+              return (d.requestedBy === userId) && (d.status === 'pending_fabrikasi' || d.status === 'pending_admin')
+            return d.status === 'pending_fabrikasi'
+          }).length
           set('/bom-request', n)
         })
       )
