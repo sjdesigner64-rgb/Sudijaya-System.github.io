@@ -106,32 +106,37 @@ router.put('/:ganttId/tasks/:taskId', async (req, res, next: NextFunction) => {
     })
     emitChange(`production_gantt/${req.params.ganttId}/tasks`)
 
-    // Auto-create shipment ketika QC & FAT selesai
+    // Auto-create shipment ketika QC & FAT selesai DAN semua pembayaran sudah lunas
     if (task.taskName === 'qc_fat' && task.status === 'done' && existing?.status !== 'done') {
       const gantt = await prisma.productionGantt.findUnique({ where: { id: req.params.ganttId } })
       if (gantt?.projectId) {
-        const existingShipment = await prisma.shipment.findFirst({
-          where: { projectId: gantt.projectId, leadId: null },
-        })
-        if (!existingShipment) {
-          const project = await prisma.project.findUnique({ where: { id: gantt.projectId } })
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await prisma.shipment.create({
-            data: {
-              projectId: gantt.projectId,
-              projectName: project?.name ?? gantt.projectName,
-              picSalesId: project?.salesPic ?? gantt.salesPic,
-              quantity: 0,
-              weight: 0,
-              dimensions: { length: 0, width: 0, height: 0 },
-              condition: 'baru',
-              picPengiriman: '',
-              status: 'pending',
-              createdBy: req.user!.id,
-            } as any,
+        const project = await prisma.project.findUnique({ where: { id: gantt.projectId } })
+        const payments = project?.payments as { status: string }[] | undefined
+        const allPaid = Array.isArray(payments) && payments.length > 0 && payments.every((p) => p.status === 'paid')
+
+        if (allPaid) {
+          const existingShipment = await prisma.shipment.findFirst({
+            where: { projectId: gantt.projectId, leadId: null },
           })
-          emitChange('shipments')
-          await advanceProjectStage(gantt.projectId, 'pengiriman')
+          if (!existingShipment) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await prisma.shipment.create({
+              data: {
+                projectId: gantt.projectId,
+                projectName: project?.name ?? gantt.projectName,
+                picSalesId: project?.salesPic ?? gantt.salesPic,
+                quantity: 0,
+                weight: 0,
+                dimensions: { length: 0, width: 0, height: 0 },
+                condition: 'baru',
+                picPengiriman: '',
+                status: 'pending',
+                createdBy: req.user!.id,
+              } as any,
+            })
+            emitChange('shipments')
+            await advanceProjectStage(gantt.projectId, 'pengiriman')
+          }
         }
       }
     }

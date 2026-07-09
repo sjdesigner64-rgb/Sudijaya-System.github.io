@@ -107,32 +107,40 @@ router.put('/:id', async (req, res, next: NextFunction) => {
       }
     }
 
-    // Semua termin lunas → auto-create shipment + advance ke pengiriman
+    // Semua termin lunas → cek juga QC & FAT sudah done, baru auto-create shipment
     const allPaidBefore = countTotal(before?.payments) > 0 && countPaid(before?.payments) === countTotal(before?.payments)
     const allPaidAfter  = totalAfter > 0 && paidAfter === totalAfter
     if (allPaidAfter && !allPaidBefore) {
-      await advanceProjectStage(doc.id, 'pengiriman')
-
-      const existingShipment = await prisma.shipment.findFirst({
-        where: { projectId: doc.id, leadId: null },
+      const gantt = await prisma.productionGantt.findFirst({
+        where: { projectId: doc.id },
+        include: { tasks: true },
       })
-      if (!existingShipment) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await prisma.shipment.create({
-          data: {
-            projectId: doc.id,
-            projectName: doc.name,
-            picSalesId: doc.salesPic,
-            quantity: 0,
-            weight: 0,
-            dimensions: { length: 0, width: 0, height: 0 },
-            condition: 'baru',
-            picPengiriman: '',
-            status: 'pending',
-            createdBy: req.user!.id,
-          } as any,
+      const qcFatDone = gantt?.tasks.some((t) => t.taskName === 'qc_fat' && t.status === 'done') ?? false
+
+      if (qcFatDone) {
+        await advanceProjectStage(doc.id, 'pengiriman')
+
+        const existingShipment = await prisma.shipment.findFirst({
+          where: { projectId: doc.id, leadId: null },
         })
-        emitChange('shipments')
+        if (!existingShipment) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await prisma.shipment.create({
+            data: {
+              projectId: doc.id,
+              projectName: doc.name,
+              picSalesId: doc.salesPic,
+              quantity: 0,
+              weight: 0,
+              dimensions: { length: 0, width: 0, height: 0 },
+              condition: 'baru',
+              picPengiriman: '',
+              status: 'pending',
+              createdBy: req.user!.id,
+            } as any,
+          })
+          emitChange('shipments')
+        }
       }
     }
 
