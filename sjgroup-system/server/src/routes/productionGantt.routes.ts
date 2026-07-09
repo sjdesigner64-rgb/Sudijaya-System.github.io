@@ -98,11 +98,44 @@ router.post('/:ganttId/tasks', async (req, res, next: NextFunction) => {
 
 router.put('/:ganttId/tasks/:taskId', async (req, res, next: NextFunction) => {
   try {
+    const existing = await prisma.ganttTask.findUnique({ where: { id: req.params.taskId } })
+
     const task = await prisma.ganttTask.update({
       where: { id: req.params.taskId },
       data: coerceBody(req.body),
     })
     emitChange(`production_gantt/${req.params.ganttId}/tasks`)
+
+    // Auto-create shipment ketika QC & FAT selesai
+    if (task.taskName === 'qc_fat' && task.status === 'done' && existing?.status !== 'done') {
+      const gantt = await prisma.productionGantt.findUnique({ where: { id: req.params.ganttId } })
+      if (gantt?.projectId) {
+        const existingShipment = await prisma.shipment.findFirst({
+          where: { projectId: gantt.projectId, leadId: null },
+        })
+        if (!existingShipment) {
+          const project = await prisma.project.findUnique({ where: { id: gantt.projectId } })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await prisma.shipment.create({
+            data: {
+              projectId: gantt.projectId,
+              projectName: project?.name ?? gantt.projectName,
+              picSalesId: project?.salesPic ?? gantt.salesPic,
+              quantity: 0,
+              weight: 0,
+              dimensions: { length: 0, width: 0, height: 0 },
+              condition: 'baru',
+              picPengiriman: '',
+              status: 'pending',
+              createdBy: req.user!.id,
+            } as any,
+          })
+          emitChange('shipments')
+          await advanceProjectStage(gantt.projectId, 'pengiriman')
+        }
+      }
+    }
+
     res.json(task)
   } catch (err) { next(err) }
 })
