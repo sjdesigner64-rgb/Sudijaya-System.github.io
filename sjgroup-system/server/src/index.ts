@@ -35,6 +35,7 @@ import contentDataRoutes from './routes/contentData.routes'
 import tasksRoutes from './routes/tasks.routes'
 import uploadRoutes from './routes/upload.routes'
 import bomRequestsRoutes from './routes/bomRequests.routes'
+import notificationsRoutes from './routes/notifications.routes'
 
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
@@ -88,13 +89,13 @@ app.use('/api/content_data', contentDataRoutes)
 app.use('/api/tasks', tasksRoutes)
 app.use('/api/upload', uploadRoutes)
 
-app.use('/api/customers',      createCrudRouter(prisma.customer,      'customers'))
-app.use('/api/quotations',     createCrudRouter(prisma.quotation,     'quotations'))
-app.use('/api/invoices',       createCrudRouter(prisma.invoice,       'invoices'))
+app.use('/api/customers',      createCrudRouter(prisma.customer,      'customers',       { writeRoles: ['super_admin', 'admin', 'sales'], deleteRoles: ['super_admin', 'admin'] }))
+app.use('/api/quotations',     createCrudRouter(prisma.quotation,     'quotations',      { writeRoles: ['super_admin', 'admin', 'sales'], deleteRoles: ['super_admin', 'admin'] }))
+app.use('/api/invoices',       createCrudRouter(prisma.invoice,       'invoices',        { writeRoles: ['super_admin', 'admin', 'sales'], deleteRoles: ['super_admin', 'admin'] }))
 app.use('/api/requests_bom',   bomRequestsRoutes)
-app.use('/api/warehouse_stock',createCrudRouter(prisma.warehouseStock,'warehouse_stock'))
-app.use('/api/meetings',       createCrudRouter(prisma.meeting,       'meetings'))
-app.use('/api/notifications',  createCrudRouter(prisma.notification,  'notifications'))
+app.use('/api/warehouse_stock',createCrudRouter(prisma.warehouseStock,'warehouse_stock', { writeRoles: ['super_admin', 'admin', 'warehouse'], deleteRoles: ['super_admin', 'admin'] }))
+app.use('/api/meetings',       createCrudRouter(prisma.meeting,       'meetings',        { writeRoles: ['super_admin', 'admin', 'sales', 'fabrikasi'], deleteRoles: ['super_admin', 'admin', 'sales'] }))
+app.use('/api/notifications',  notificationsRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

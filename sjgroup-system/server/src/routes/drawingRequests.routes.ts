@@ -1,6 +1,6 @@
 import { Router, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireRole } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
 import { advanceProjectStage } from '../lib/pipelineStage'
 
@@ -78,17 +78,23 @@ router.post('/', async (req, res, next: NextFunction) => {
 
 router.put('/:id', async (req, res, next: NextFunction) => {
   try {
-    const doc = await prisma.drawingRequest.update({
-      where: { id: req.params.id },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: coerceBody(req.body) as any,
-    })
+    const role = req.user!.role
+    const existing = await prisma.drawingRequest.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ error: 'Not found' })
+    if (role === 'sales' && existing.requestedBy !== req.user!.id)
+      return res.status(403).json({ error: 'Forbidden' })
+    if (role === 'fabrikasi') {
+      const assigned = Array.isArray(existing.assignedTo) && (existing.assignedTo as unknown[]).includes(req.user!.id)
+      if (!assigned) return res.status(403).json({ error: 'Forbidden' })
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = await prisma.drawingRequest.update({ where: { id: req.params.id }, data: coerceBody(req.body) as any })
     emitChange('requests_drawing')
     res.json(doc)
   } catch (err) { next(err) }
 })
 
-router.delete('/:id', async (req, res, next: NextFunction) => {
+router.delete('/:id', requireRole(['super_admin', 'admin']), async (req, res, next: NextFunction) => {
   try {
     await prisma.drawingRequest.delete({ where: { id: req.params.id } })
     emitChange('requests_drawing')

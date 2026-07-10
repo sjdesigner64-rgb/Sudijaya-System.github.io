@@ -1,5 +1,5 @@
-import { Router } from 'express'
-import { requireAuth } from '../middleware/auth'
+import { Router, RequestHandler } from 'express'
+import { requireAuth, requireRole } from '../middleware/auth'
 import { emitChange } from './socketBus'
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
@@ -21,10 +21,20 @@ const coerceBody = (body: Record<string, unknown>) => {
   return out
 }
 
+interface CrudOptions {
+  writeRoles?: string[]
+  deleteRoles?: string[]
+}
+
+const passThrough: RequestHandler = (_req, _res, next) => next()
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createCrudRouter(model: any, collectionName: string) {
+export function createCrudRouter(model: any, collectionName: string, options: CrudOptions = {}) {
   const router = Router()
   router.use(requireAuth)
+
+  const canWrite = options.writeRoles ? requireRole(options.writeRoles) : passThrough
+  const canDelete = options.deleteRoles ? requireRole(options.deleteRoles) : passThrough
 
   router.get('/', async (req, res, next) => {
     try {
@@ -53,7 +63,7 @@ export function createCrudRouter(model: any, collectionName: string) {
     } catch (err) { next(err) }
   })
 
-  router.post('/', async (req, res, next) => {
+  router.post('/', canWrite, async (req, res, next) => {
     try {
       const doc = await model.create({ data: coerceBody(req.body) })
       emitChange(collectionName)
@@ -61,7 +71,7 @@ export function createCrudRouter(model: any, collectionName: string) {
     } catch (err) { next(err) }
   })
 
-  router.put('/:id', async (req, res, next) => {
+  router.put('/:id', canWrite, async (req, res, next) => {
     try {
       const doc = await model.update({ where: { id: req.params.id }, data: coerceBody(req.body) })
       emitChange(collectionName)
@@ -69,7 +79,7 @@ export function createCrudRouter(model: any, collectionName: string) {
     } catch (err) { next(err) }
   })
 
-  router.delete('/:id', async (req, res, next) => {
+  router.delete('/:id', canDelete, async (req, res, next) => {
     try {
       await model.delete({ where: { id: req.params.id } })
       emitChange(collectionName)

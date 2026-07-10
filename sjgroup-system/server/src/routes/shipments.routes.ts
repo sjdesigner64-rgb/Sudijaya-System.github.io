@@ -117,7 +117,7 @@ router.put('/:id', async (req, res, next: NextFunction) => {
   } catch (err) { next(err) }
 })
 
-router.delete('/:id', async (req, res, next: NextFunction) => {
+router.delete('/:id', requireRole(['super_admin', 'admin']), async (req, res, next: NextFunction) => {
   try {
     await prisma.shipment.delete({ where: { id: req.params.id } })
     emitChange('shipments')

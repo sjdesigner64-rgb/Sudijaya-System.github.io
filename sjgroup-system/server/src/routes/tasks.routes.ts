@@ -1,6 +1,6 @@
 import { Router, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireRole } from '../middleware/auth'
 import { emitChange } from '../lib/socketBus'
 import { notifyUser } from '../lib/notify'
 
@@ -51,7 +51,7 @@ router.get('/:id', async (req, res, next: NextFunction) => {
   } catch (err) { next(err) }
 })
 
-router.post('/', async (req, res, next: NextFunction) => {
+router.post('/', requireRole(['super_admin', 'admin', 'sales']), async (req, res, next: NextFunction) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const doc = await prisma.task.create({ data: coerceBody(req.body) as any })
@@ -79,16 +79,20 @@ router.post('/', async (req, res, next: NextFunction) => {
 
 router.put('/:id', async (req, res, next: NextFunction) => {
   try {
-    const doc = await prisma.task.update({
-      where: { id: req.params.id },
-      data: coerceBody(req.body),
-    })
+    const role = req.user!.role
+    if (!['super_admin', 'admin'].includes(role)) {
+      const existing = await prisma.task.findUnique({ where: { id: req.params.id } })
+      if (!existing) return res.status(404).json({ error: 'Not found' })
+      if (existing.assignedTo !== req.user!.id)
+        return res.status(403).json({ error: 'Forbidden' })
+    }
+    const doc = await prisma.task.update({ where: { id: req.params.id }, data: coerceBody(req.body) })
     emitChange('tasks')
     res.json(doc)
   } catch (err) { next(err) }
 })
 
-router.delete('/:id', async (req, res, next: NextFunction) => {
+router.delete('/:id', requireRole(['super_admin', 'admin']), async (req, res, next: NextFunction) => {
   try {
     await prisma.task.delete({ where: { id: req.params.id } })
     emitChange('tasks')
