@@ -50,9 +50,10 @@ app.use(helmet({
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(',').map(o => o.trim())
 app.use(cors({
   origin: (origin, cb) => {
-    // Izinkan request tanpa origin (Postman, server-to-server) hanya di dev
-    if (!origin && !isProd) return cb(null, true)
-    if (origin && allowedOrigins.includes(origin)) return cb(null, true)
+    // Tidak ada Origin = same-origin browser request (GET tidak kirim Origin) — izinkan
+    if (!origin) return cb(null, true)
+    // Ada Origin: cek whitelist
+    if (allowedOrigins.includes(origin)) return cb(null, true)
     cb(new Error('Not allowed by CORS'))
   },
   credentials: true,
