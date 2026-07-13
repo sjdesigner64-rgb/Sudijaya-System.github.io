@@ -83,7 +83,7 @@ router.put('/:id', async (req, res, next: NextFunction) => {
     if (!['super_admin', 'admin'].includes(role)) {
       const existing = await prisma.task.findUnique({ where: { id: req.params.id } })
       if (!existing) return res.status(404).json({ error: 'Not found' })
-      if (existing.assignedTo !== req.user!.id)
+      if (existing.assignedTo !== req.user!.id && existing.assignedBy !== req.user!.id)
         return res.status(403).json({ error: 'Forbidden' })
     }
     const doc = await prisma.task.update({ where: { id: req.params.id }, data: coerceBody(req.body) })

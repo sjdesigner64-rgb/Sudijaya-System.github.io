@@ -71,7 +71,8 @@ router.delete('/:id', requireRole(['super_admin', 'admin', 'sales']), async (req
   try {
     if (req.user!.role === 'sales') {
       const existing = await prisma.bomRequest.findUnique({ where: { id: req.params.id } })
-      if (!existing || existing.requestedBy !== req.user!.id)
+      if (!existing) return res.status(404).json({ error: 'Not found' })
+      if (existing.requestedBy !== req.user!.id)
         return res.status(403).json({ error: 'Forbidden' })
     }
     await prisma.bomRequest.delete({ where: { id: req.params.id } })
