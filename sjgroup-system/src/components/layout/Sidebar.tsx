@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, FileText, Receipt, CreditCard,
   ClipboardList, Calendar, BarChart2, Package, Image,
   Settings, ChevronLeft, Layers,
-  Inbox, ShieldCheck, Truck, Wrench, FolderOpen, Film,
+  Inbox, ShieldCheck, Truck, Wrench, FolderOpen, Film, ScrollText,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/utils/cn'
@@ -37,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/shipment', label: 'Pengiriman', icon: <Truck className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
   { to: '/installation', label: 'Instalasi', icon: <Wrench className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi'] },
   { to: '/inbox', label: 'Inbox', icon: <Inbox className="h-4 w-4" />, roles: ['super_admin', 'admin', 'sales', 'fabrikasi', 'warehouse', 'media'] },
+  { to: '/activity-log', label: 'Log Aktivitas', icon: <ScrollText className="h-4 w-4" />, roles: ['super_admin', 'admin'] },
   { to: '/users', label: 'Kelola User', icon: <Settings className="h-4 w-4" />, roles: ['super_admin'] },
 ]
 

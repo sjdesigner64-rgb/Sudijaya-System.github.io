@@ -395,3 +395,19 @@ model PasswordResetToken {
   @@index([userId])
   @@map("password_reset_tokens")
 }
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  userRole   String
+  action     String
+  collection String
+  recordId   String   @default("")
+  ipAddress  String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([collection])
+  @@index([createdAt])
+  @@map("activity_logs")
+}

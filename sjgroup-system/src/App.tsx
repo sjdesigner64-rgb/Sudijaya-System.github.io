@@ -23,6 +23,7 @@ import { TasksPage } from '@/pages/shared/TasksPage'
 import { MeetingsPage } from '@/pages/shared/MeetingsPage'
 import { InboxPanel } from '@/components/inbox/InboxPanel'
 import { UsersPage } from '@/pages/superadmin/UsersPage'
+import { ActivityLogPage } from '@/pages/admin/ActivityLogPage'
 import { useAuthStore } from '@/store/authStore'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -145,6 +146,11 @@ function AppWithAuth() {
           <Route path="users" element={
             <ProtectedRoute allowedRoles={['super_admin']}>
               <UsersPage />
+            </ProtectedRoute>
+          } />
+          <Route path="activity-log" element={
+            <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+              <ActivityLogPage />
             </ProtectedRoute>
           } />
         </Route>

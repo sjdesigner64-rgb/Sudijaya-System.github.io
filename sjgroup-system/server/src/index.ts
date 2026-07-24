@@ -36,6 +36,8 @@ import tasksRoutes from './routes/tasks.routes'
 import uploadRoutes from './routes/upload.routes'
 import bomRequestsRoutes from './routes/bomRequests.routes'
 import notificationsRoutes from './routes/notifications.routes'
+import activityLogRoutes from './routes/activityLog.routes'
+import { activityLogger } from './middleware/activityLogger'
 
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
@@ -74,6 +76,9 @@ app.use('/api/', apiLimiter)
 app.use('/api/auth/login', loginLimiter)
 app.use('/api/upload', uploadLimiter)
 
+// ── Activity logger (setelah body parser, sebelum routes) ────────────────────
+app.use('/api/', activityLogger)
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
 app.use('/api/users', usersRoutes)
@@ -97,6 +102,7 @@ app.use('/api/requests_bom',   bomRequestsRoutes)
 app.use('/api/warehouse_stock',createCrudRouter(prisma.warehouseStock,'warehouse_stock', { writeRoles: ['super_admin', 'admin', 'warehouse'], deleteRoles: ['super_admin', 'admin'] }))
 app.use('/api/meetings',       createCrudRouter(prisma.meeting,       'meetings',        { writeRoles: ['super_admin', 'admin', 'sales', 'fabrikasi'], deleteRoles: ['super_admin', 'admin', 'sales'] }))
 app.use('/api/notifications',  notificationsRoutes)
+app.use('/api/activity_log',   activityLogRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
