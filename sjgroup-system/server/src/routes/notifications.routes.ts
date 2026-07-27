@@ -39,6 +39,15 @@ router.get('/:id', async (req, res, next: NextFunction) => {
   } catch (err) { next(err) }
 })
 
+router.post('/', async (req, res, next: NextFunction) => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = await prisma.notification.create({ data: { ...req.body, isRead: false } as any })
+    emitChange('notifications')
+    res.json(doc)
+  } catch (err) { next(err) }
+})
+
 router.put('/:id', async (req, res, next: NextFunction) => {
   try {
     const doc = await prisma.notification.findUnique({ where: { id: req.params.id } })
