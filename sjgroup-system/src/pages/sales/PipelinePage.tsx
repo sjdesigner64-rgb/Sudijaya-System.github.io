@@ -5,7 +5,7 @@ import { cn } from '@/utils/cn'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 import { toDate } from '@/utils/firestore'
-import type { Project, PipelineStage, ProductCategory, Customer, MeetingNote, User } from '@/types'
+import type { Project, PipelineStage, ProductCategory, Customer, MeetingNote, User, GanttTaskName } from '@/types'
 import { useAuthStore } from '@/store/authStore'
 import { createDoc, updateDocument, deleteDocument, subscribeToCollection, getDocuments, where } from '@/services/firestore.service'
 import { notifyProjectSalesCreated } from '@/services/notification.service'
@@ -13,6 +13,16 @@ import { Pagination } from '@/components/common/Pagination'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 const PAGE_SIZE = 10
+
+const parseLocalDate = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+const GANTT_TASK_SEQUENCE: GanttTaskName[] = [
+  'drawing', 'purchase_material', 'cutting_laser', 'vendor',
+  'fabrikasi', 'electrical', 'qc_fat', 'instalasi',
+]
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
   leads: 'Leads',
@@ -233,6 +243,8 @@ function TrackModal({ project, onClose }: TrackModalProps) {
   const [noteDate, setNoteDate]       = useState(new Date().toISOString().slice(0, 10))
   const [noteContent, setNoteContent] = useState('')
   const [savingNote, setSavingNote]   = useState(false)
+  const [ganttDeadline, setGanttDeadline]         = useState('')
+  const [ganttDeadlineError, setGanttDeadlineError] = useState(false)
 
   const currentIdx  = STAGES.indexOf(project.pipelineStage)
   const nextStage   = STAGES[currentIdx + 1] as PipelineStage | undefined
@@ -277,6 +289,42 @@ function TrackModal({ project, onClose }: TrackModalProps) {
     try {
       await updateDocument('projects', project.id, { status: 'completed' })
       setSavedStage(project.pipelineStage)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const completeMeetingFabrikasi = async () => {
+    if (!ganttDeadline) { setGanttDeadlineError(true); return }
+    setGanttDeadlineError(false)
+    setUpdating(true)
+    setSavedStage(null)
+    try {
+      const existing = await getDocuments('production_gantt', [where('projectId', '==', project.id)])
+      if (existing.length === 0) {
+        const ganttId = await createDoc('production_gantt', {
+          projectId:       project.id,
+          projectName:     project.name,
+          salesPic:        project.salesPic,
+          overallDeadline: parseLocalDate(ganttDeadline),
+          status:          'active',
+        })
+        await Promise.all(
+          GANTT_TASK_SEQUENCE.map((taskName) =>
+            createDoc(`production_gantt/${ganttId}/tasks`, {
+              taskName,
+              deadline: parseLocalDate(ganttDeadline),
+              status:   'pending',
+              pic:      [],
+              notes:    [],
+            })
+          )
+        )
+      } else {
+        // Gantt sudah ada — cukup advance stage
+        await updateDocument('projects', project.id, { pipelineStage: 'fabrikasi_build' })
+      }
+      setSavedStage('fabrikasi_build')
     } finally {
       setUpdating(false)
     }
@@ -338,7 +386,11 @@ function TrackModal({ project, onClose }: TrackModalProps) {
         {/* Primary action: advance to next stage */}
         {!isLastStage && nextStage && !AUTO_STAGES.includes(nextStage) && (
           <button
-            onClick={() => setStage(nextStage)}
+            onClick={() =>
+              project.pipelineStage === 'meeting_fabrikasi'
+                ? completeMeetingFabrikasi()
+                : setStage(nextStage)
+            }
             disabled={updating}
             className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
@@ -347,7 +399,10 @@ function TrackModal({ project, onClose }: TrackModalProps) {
             ) : (
               <>
                 <Check className="h-4 w-4" />
-                Selesaikan & Lanjut ke {STAGE_LABELS[nextStage]}
+                {project.pipelineStage === 'meeting_fabrikasi'
+                  ? 'Selesai Meeting & Buat Project Fabrikasi'
+                  : `Selesaikan & Lanjut ke ${STAGE_LABELS[nextStage]}`
+                }
                 <ArrowRight className="h-4 w-4 ml-1" />
               </>
             )}
@@ -404,6 +459,22 @@ function TrackModal({ project, onClose }: TrackModalProps) {
                 className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs disabled:opacity-50">
                 {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Tambah'}
               </button>
+            </div>
+
+            {/* Deadline fabrikasi — wajib diisi sebelum klik Selesai Meeting */}
+            <div className="pt-2.5 border-t border-border">
+              <label className="text-xs font-medium block mb-1">
+                Deadline Fabrikasi <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={ganttDeadline}
+                onChange={(e) => { setGanttDeadline(e.target.value); setGanttDeadlineError(false) }}
+                className={`w-full px-2 py-1.5 border ${ganttDeadlineError ? 'border-red-400 dark:border-red-600' : 'border-input'} rounded-md text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring`}
+              />
+              {ganttDeadlineError && (
+                <p className="text-xs text-red-500 mt-0.5">Deadline wajib diisi sebelum melanjutkan</p>
+              )}
             </div>
           </div>
         )}

@@ -125,6 +125,15 @@ export const useSidebarBadges = (): BadgeCounts => {
       )
     }
 
+    // Project Fabrikasi — gantt aktif (bertambah saat meeting_fabrikasi selesai)
+    if (['super_admin', 'admin', 'sales', 'fabrikasi'].includes(role)) {
+      unsubs.push(
+        subscribeToCollection('production_gantt', [], (docs) => {
+          set('/gantt', docs.filter((d) => d.status === 'active').length)
+        })
+      )
+    }
+
     // Payment Tracking — project belum ada rencana payment ATAU ada termin pending; lead belum lunas
     if (['super_admin', 'admin'].includes(role)) {
       let projectCount = 0
