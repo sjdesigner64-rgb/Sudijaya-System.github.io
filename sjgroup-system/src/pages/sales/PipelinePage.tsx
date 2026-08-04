@@ -14,11 +14,6 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 const PAGE_SIZE = 10
 
-const parseLocalDate = (s: string): Date => {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
-
 const GANTT_TASK_SEQUENCE: GanttTaskName[] = [
   'drawing', 'purchase_material', 'cutting_laser', 'vendor',
   'fabrikasi', 'electrical', 'qc_fat', 'instalasi',
@@ -243,8 +238,6 @@ function TrackModal({ project, onClose }: TrackModalProps) {
   const [noteDate, setNoteDate]       = useState(new Date().toISOString().slice(0, 10))
   const [noteContent, setNoteContent] = useState('')
   const [savingNote, setSavingNote]   = useState(false)
-  const [ganttDeadline, setGanttDeadline]         = useState('')
-  const [ganttDeadlineError, setGanttDeadlineError] = useState(false)
 
   const currentIdx  = STAGES.indexOf(project.pipelineStage)
   const nextStage   = STAGES[currentIdx + 1] as PipelineStage | undefined
@@ -295,10 +288,10 @@ function TrackModal({ project, onClose }: TrackModalProps) {
   }
 
   const completeMeetingFabrikasi = async () => {
-    if (!ganttDeadline) { setGanttDeadlineError(true); return }
-    setGanttDeadlineError(false)
     setUpdating(true)
     setSavedStage(null)
+    // Deadline diisi oleh fabrikasi nanti — gunakan placeholder 90 hari dari sekarang
+    const placeholder = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
     try {
       const existing = await getDocuments('production_gantt', [where('projectId', '==', project.id)])
       if (existing.length === 0) {
@@ -306,14 +299,14 @@ function TrackModal({ project, onClose }: TrackModalProps) {
           projectId:       project.id,
           projectName:     project.name,
           salesPic:        project.salesPic,
-          overallDeadline: parseLocalDate(ganttDeadline),
+          overallDeadline: placeholder,
           status:          'active',
         })
         await Promise.all(
           GANTT_TASK_SEQUENCE.map((taskName) =>
             createDoc(`production_gantt/${ganttId}/tasks`, {
               taskName,
-              deadline: parseLocalDate(ganttDeadline),
+              deadline: placeholder,
               status:   'pending',
               pic:      [],
               notes:    [],
@@ -461,21 +454,9 @@ function TrackModal({ project, onClose }: TrackModalProps) {
               </button>
             </div>
 
-            {/* Deadline fabrikasi — wajib diisi sebelum klik Selesai Meeting */}
-            <div className="pt-2.5 border-t border-border">
-              <label className="text-xs font-medium block mb-1">
-                Deadline Fabrikasi <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={ganttDeadline}
-                onChange={(e) => { setGanttDeadline(e.target.value); setGanttDeadlineError(false) }}
-                className={`w-full px-2 py-1.5 border ${ganttDeadlineError ? 'border-red-400 dark:border-red-600' : 'border-input'} rounded-md text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring`}
-              />
-              {ganttDeadlineError && (
-                <p className="text-xs text-red-500 mt-0.5">Deadline wajib diisi sebelum melanjutkan</p>
-              )}
-            </div>
+            <p className="text-[10px] text-muted-foreground pt-1">
+              Deadline fabrikasi diatur oleh tim Fabrikasi di menu Project Fabrikasi.
+            </p>
           </div>
         )}
 
