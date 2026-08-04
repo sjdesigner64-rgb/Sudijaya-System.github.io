@@ -300,7 +300,7 @@ function TrackModal({ project, onClose }: TrackModalProps) {
           projectName:     project.name,
           salesPic:        project.salesPic,
           overallDeadline: placeholder,
-          status:          'active',
+          status:          'on_progress',
         })
         await Promise.all(
           GANTT_TASK_SEQUENCE.map((taskName) =>

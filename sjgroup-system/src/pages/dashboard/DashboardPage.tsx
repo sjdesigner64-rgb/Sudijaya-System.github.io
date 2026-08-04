@@ -361,7 +361,7 @@ export function DashboardPage() {
   // ─── KPI values ──────────────────────────────────────────────────────────
   const pipelineValue  = filteredProjects.reduce((s, p) => s + (p.estimatedValue ?? 0), 0)
   const activeProjects = filteredProjects.filter((p) => p.status === 'active')
-  const activeGantts   = filteredGantts.filter((g) => g.status === 'active')
+  const activeGantts   = filteredGantts.filter((g) => g.status === 'on_progress')
   const activeTickets  = afterSales.filter((t) => !['selesai', 'cancel'].includes(t.ticketStatus))
   const urgentCount    = activeTickets.filter((t) => ['urgent', 'high'].includes(t.priority)).length
 
@@ -462,7 +462,7 @@ export function DashboardPage() {
         type: t.priority === 'urgent' ? 'danger' : 'warning',
       }))
     filteredGantts
-      .filter((g) => g.status === 'active' && differenceInDays(g.overallDeadline, new Date()) < 0)
+      .filter((g) => g.status === 'on_progress' && differenceInDays(g.overallDeadline, new Date()) < 0)
       .slice(0, 3)
       .forEach((g) => items.push({
         label: `Produksi Overdue: ${g.projectName}`,

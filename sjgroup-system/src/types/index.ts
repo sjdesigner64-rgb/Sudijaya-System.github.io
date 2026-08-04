@@ -255,7 +255,7 @@ export interface ProductionGantt {
   projectName: string
   salesPic: string
   overallDeadline: Date
-  status: 'active' | 'completed'
+  status: 'on_progress' | 'hold' | 'done'
   tasks: GanttTask[]
 }
 

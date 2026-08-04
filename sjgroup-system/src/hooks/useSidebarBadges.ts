@@ -129,7 +129,7 @@ export const useSidebarBadges = (): BadgeCounts => {
     if (['super_admin', 'admin', 'sales', 'fabrikasi'].includes(role)) {
       unsubs.push(
         subscribeToCollection('production_gantt', [], (docs) => {
-          set('/gantt', docs.filter((d) => d.status === 'active').length)
+          set('/gantt', docs.filter((d) => d.status !== 'done').length)
         })
       )
     }

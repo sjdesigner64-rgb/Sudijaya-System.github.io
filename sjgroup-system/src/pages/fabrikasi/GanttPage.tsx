@@ -20,10 +20,15 @@ const TASK_SEQUENCE: GanttTaskName[] = [
   'fabrikasi', 'electrical', 'qc_fat', 'instalasi',
 ]
 
-const STATUS_LABELS: Record<ProductionGantt['status'], string> = { active: 'Aktif', completed: 'Selesai' }
+const STATUS_LABELS: Record<ProductionGantt['status'], string> = {
+  on_progress: 'On Progress',
+  hold: 'Hold',
+  done: 'Done',
+}
 const STATUS_COLORS: Record<ProductionGantt['status'], string> = {
-  active: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
-  completed: 'bg-green-100 dark:bg-green-900 text-green-700',
+  on_progress: 'bg-blue-100 dark:bg-blue-900 text-blue-700',
+  hold: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700',
+  done: 'bg-green-100 dark:bg-green-900 text-green-700',
 }
 
 const parseLocalDate = (s: string): Date => {
@@ -54,7 +59,7 @@ function NewGanttForm({ projects, existingIds, onClose }: { projects: Project[];
         projectName: selectedProject.name,
         salesPic: selectedProject.salesPic,
         overallDeadline: parseLocalDate(overallDeadline),
-        status: 'active',
+        status: 'on_progress',
       })
       await Promise.all(
         TASK_SEQUENCE.map((taskName) =>
@@ -135,8 +140,9 @@ function EditGanttForm({ gantt, onClose }: { gantt: ProductionGantt; onClose: ()
           <div>
             <label className="text-sm font-medium block mb-1">Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value as ProductionGantt['status'])} className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="active">Aktif</option>
-              <option value="completed">Selesai</option>
+              <option value="on_progress">On Progress</option>
+              <option value="hold">Hold</option>
+              <option value="done">Done</option>
             </select>
           </div>
         </div>
@@ -372,7 +378,7 @@ export function GanttPage() {
   const paginatedGantts = filteredGantts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const now = new Date()
-  const overdueCount = visibleGantts.filter((g) => g.status === 'active' && g.overallDeadline < now).length
+  const overdueCount = visibleGantts.filter((g) => g.status === 'on_progress' && g.overallDeadline < now).length
 
   // ── Detail view (Gantt Chart) ──────────────────────────────
   if (selected) {
@@ -422,18 +428,25 @@ export function GanttPage() {
             filter: null as ProductionGantt['status'] | 'all' | null,
           },
           {
-            label: 'Aktif',
-            count: visibleGantts.filter((g) => g.status === 'active').length,
+            label: 'On Progress',
+            count: visibleGantts.filter((g) => g.status === 'on_progress').length,
             icon: <Activity className="h-5 w-5" />,
             color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
-            filter: 'active' as ProductionGantt['status'] | 'all' | null,
+            filter: 'on_progress' as ProductionGantt['status'] | 'all' | null,
           },
           {
-            label: 'Selesai',
-            count: visibleGantts.filter((g) => g.status === 'completed').length,
+            label: 'Hold',
+            count: visibleGantts.filter((g) => g.status === 'hold').length,
+            icon: <AlertTriangle className="h-5 w-5" />,
+            color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400',
+            filter: 'hold' as ProductionGantt['status'] | 'all' | null,
+          },
+          {
+            label: 'Done',
+            count: visibleGantts.filter((g) => g.status === 'done').length,
             icon: <CheckCircle2 className="h-5 w-5" />,
             color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
-            filter: 'completed' as ProductionGantt['status'] | 'all' | null,
+            filter: 'done' as ProductionGantt['status'] | 'all' | null,
           },
           {
             label: 'Overdue',
@@ -446,7 +459,7 @@ export function GanttPage() {
           },
         ]
         return (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {cards.map((c) => {
               const isActive = c.filter !== null && filterStatus === c.filter
               return (
@@ -495,8 +508,9 @@ export function GanttPage() {
           className="px-3 py-2 border border-input rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="all">Semua Status</option>
-          <option value="active">Aktif</option>
-          <option value="completed">Selesai</option>
+          <option value="on_progress">On Progress</option>
+          <option value="hold">Hold</option>
+          <option value="done">Done</option>
         </select>
       </div>
 
